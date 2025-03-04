@@ -85,6 +85,10 @@ AutoTypeSelectDialog::AutoTypeSelectDialog(QWidget* parent)
     connect(m_ui->action, &QToolButton::clicked, this, &AutoTypeSelectDialog::activateCurrentMatch);
 
     connect(m_ui->cancelButton, SIGNAL(clicked()), SLOT(reject()));
+
+    auto sortColumn = config()->get(Config::AutoTypeDialogSortColumn).toInt();
+    auto sortOrder = config()->get(Config::AutoTypeDialogSortOrder).toInt();
+    m_ui->view->sortByColumn(sortColumn, sortOrder == 0 ? Qt::AscendingOrder : Qt::DescendingOrder);
 }
 
 // Required for QScopedPointer
@@ -330,15 +334,7 @@ void AutoTypeSelectDialog::buildActionMenu()
     });
 #endif
 
-    // Qt 5.10 introduced a new "feature" to hide shortcuts in context menus
-    // Unfortunately, Qt::AA_DontShowShortcutsInContextMenus is broken, have to manually enable them
-    typeUsernameAction->setShortcutVisibleInContextMenu(true);
-    typePasswordAction->setShortcutVisibleInContextMenu(true);
-    typeTotpAction->setShortcutVisibleInContextMenu(true);
-#if defined(Q_OS_WIN) || defined(Q_OS_MAC)
-    typeVirtualAction->setShortcutVisibleInContextMenu(true);
-#endif
-
+    copyUsernameAction->setShortcut(Qt::CTRL + Qt::SHIFT + Qt::Key_1);
     copyUsernameAction->setProperty(MENU_FIELD_PROP_NAME, MENU_FIELD::USERNAME);
     connect(copyUsernameAction, &QAction::triggered, this, [&] {
         auto entry = m_ui->view->currentMatch().first;
@@ -348,6 +344,7 @@ void AutoTypeSelectDialog::buildActionMenu()
         }
     });
 
+    copyPasswordAction->setShortcut(Qt::CTRL + Qt::SHIFT + Qt::Key_2);
     copyPasswordAction->setProperty(MENU_FIELD_PROP_NAME, MENU_FIELD::PASSWORD);
     connect(copyPasswordAction, &QAction::triggered, this, [&] {
         auto entry = m_ui->view->currentMatch().first;
@@ -357,6 +354,7 @@ void AutoTypeSelectDialog::buildActionMenu()
         }
     });
 
+    copyTotpAction->setShortcut(Qt::CTRL + Qt::SHIFT + Qt::Key_3);
     copyTotpAction->setProperty(MENU_FIELD_PROP_NAME, MENU_FIELD::TOTP);
     connect(copyTotpAction, &QAction::triggered, this, [&] {
         auto entry = m_ui->view->currentMatch().first;
@@ -365,6 +363,18 @@ void AutoTypeSelectDialog::buildActionMenu()
             reject();
         }
     });
+
+    // Qt 5.10 introduced a new "feature" to hide shortcuts in context menus
+    // Unfortunately, Qt::AA_DontShowShortcutsInContextMenus is broken, have to manually enable them
+    typeUsernameAction->setShortcutVisibleInContextMenu(true);
+    typePasswordAction->setShortcutVisibleInContextMenu(true);
+    typeTotpAction->setShortcutVisibleInContextMenu(true);
+#if defined(Q_OS_WIN) || defined(Q_OS_MAC)
+    typeVirtualAction->setShortcutVisibleInContextMenu(true);
+#endif
+    copyUsernameAction->setShortcutVisibleInContextMenu(true);
+    copyPasswordAction->setShortcutVisibleInContextMenu(true);
+    copyTotpAction->setShortcutVisibleInContextMenu(true);
 }
 
 void AutoTypeSelectDialog::showEvent(QShowEvent* event)
@@ -391,6 +401,8 @@ void AutoTypeSelectDialog::showEvent(QShowEvent* event)
 void AutoTypeSelectDialog::hideEvent(QHideEvent* event)
 {
     config()->set(Config::GUI_AutoTypeSelectDialogSize, size());
+    config()->set(Config::AutoTypeDialogSortColumn, m_ui->view->horizontalHeader()->sortIndicatorSection());
+    config()->set(Config::AutoTypeDialogSortOrder, m_ui->view->horizontalHeader()->sortIndicatorOrder());
     if (!m_accepted) {
         emit rejected();
     }

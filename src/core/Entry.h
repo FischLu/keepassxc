@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2024 KeePassXC Team <team@keepassxc.org>
+ *  Copyright (C) 2025 KeePassXC Team <team@keepassxc.org>
  *  Copyright (C) 2010 Felix Geyer <debfx@fobos.de>
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -100,7 +100,9 @@ public:
     const AutoTypeAssociations* autoTypeAssociations() const;
     QString title() const;
     QString url() const;
+    QString resolveUrl() const;
     QStringList getAllUrls() const;
+    QStringList getAdditionalUrls() const;
     QString webUrl() const;
     QString displayUrl() const;
     QString username() const;
@@ -126,6 +128,7 @@ public:
     bool hasTotp() const;
     bool isExpired() const;
     bool willExpireInDays(int days) const;
+    void expireNow();
     bool isRecycled() const;
     bool isAttributeReference(const QString& key) const;
     bool isAttributeReferenceOf(const QString& key, const QUuid& uuid) const;
@@ -225,7 +228,9 @@ public:
         DateTimeUtcHour,
         DateTimeUtcMinute,
         DateTimeUtcSecond,
-        DbDir
+        DbDir,
+        Conversion,
+        Regex
     };
 
     static const int DefaultIconNumber;
@@ -244,6 +249,8 @@ public:
     QString resolvePlaceholder(const QString& str) const;
     QString resolveUrlPlaceholder(const QString& str, PlaceholderType placeholderType) const;
     QString resolveDateTimePlaceholder(PlaceholderType placeholderType) const;
+    QString resolveConversionPlaceholder(const QString& str, QString* error = nullptr) const;
+    QString resolveRegexPlaceholder(const QString& str, QString* error = nullptr) const;
     PlaceholderType placeholderType(const QString& placeholder) const;
     QString resolveUrl(const QString& url) const;
 

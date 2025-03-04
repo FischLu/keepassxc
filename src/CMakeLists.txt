@@ -71,6 +71,7 @@ set(core_SOURCES
         format/BitwardenReader.cpp
         format/CsvExporter.cpp
         format/CsvParser.cpp
+        format/HtmlExporter.cpp
         format/KeePass1Reader.cpp
         format/KeePass2.cpp
         format/KeePass2RandomStream.cpp
@@ -90,11 +91,13 @@ set(core_SOURCES
         format/OpVaultReaderAttachments.cpp
         format/OpVaultReaderBandEntry.cpp
         format/OpVaultReaderSections.cpp
+        format/ProtonPassReader.cpp
         keys/CompositeKey.cpp
         keys/FileKey.cpp
         keys/PasswordKey.cpp
         keys/ChallengeResponseKey.cpp
         streams/HashedBlockStream.cpp
+        streams/HashingStream.cpp
         streams/HmacBlockStream.cpp
         streams/LayeredStream.cpp
         streams/qtiocompressor.cpp
@@ -127,7 +130,7 @@ set(gui_SOURCES
         gui/FileDialog.cpp
         gui/Font.cpp
         gui/GuiTools.cpp
-        gui/HtmlExporter.cpp
+        gui/HtmlGuiExporter.cpp
         gui/IconModels.cpp
         gui/KMessageWidget.cpp
         gui/MainWindow.cpp
@@ -156,6 +159,8 @@ set(gui_SOURCES
         gui/entry/EntryAttachmentsModel.cpp
         gui/entry/EntryAttachmentsWidget.cpp
         gui/entry/EntryAttributesModel.cpp
+        gui/entry/NewEntryAttachmentsDialog.cpp
+        gui/entry/PreviewEntryAttachmentsDialog.cpp
         gui/entry/EntryHistoryModel.cpp
         gui/entry/EntryModel.cpp
         gui/entry/EntryView.cpp

@@ -25,6 +25,7 @@
 #include "core/Tools.h"
 #include "format/CsvExporter.h"
 #include "gui/Clipboard.h"
+#include "gui/DatabaseIcons.h"
 #include "gui/DatabaseOpenDialog.h"
 #include "gui/DatabaseWidget.h"
 #include "gui/DatabaseWidgetStateSync.h"
@@ -303,6 +304,9 @@ void DatabaseTabWidget::importFile()
                 Merger merger(db.data(), newDb.data());
                 merger.setSkipDatabaseCustomData(true);
                 merger.merge();
+                // Transfer the root group data
+                newDb->rootGroup()->setName(db->rootGroup()->name());
+                newDb->rootGroup()->setNotes(db->rootGroup()->notes());
                 // Show the new database
                 auto dbWidget = new DatabaseWidget(newDb, this);
                 addDatabaseTab(dbWidget);
@@ -672,6 +676,12 @@ void DatabaseTabWidget::updateTabName(int index)
     index = indexOf(dbWidget);
     setTabText(index, tabName(index));
     setTabToolTip(index, dbWidget->displayFilePath());
+    auto iconIndex = dbWidget->database()->publicIcon();
+    if (iconIndex >= 0 && iconIndex < databaseIcons()->count()) {
+        setTabIcon(index, databaseIcons()->icon(iconIndex));
+    } else {
+        setTabIcon(index, {});
+    }
     emit tabNameChanged();
 }
 
@@ -820,6 +830,9 @@ void DatabaseTabWidget::handleDatabaseUnlockDialogFinished(bool accepted, Databa
     if (intent == DatabaseOpenDialog::Intent::AutoType && config()->get(Config::Security_RelockAutoType).toBool()) {
         m_dbWidgetPendingLock = dbWidget;
     }
+
+    // If browser extension requested the unlock make sure cancel is handled
+    m_databaseOpenInProgress = false;
 
     // signal other objects that the dialog finished
     emit databaseUnlockDialogFinished(accepted, dbWidget);

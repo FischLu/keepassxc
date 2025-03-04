@@ -153,6 +153,7 @@ AutoType::AutoType(QObject* parent, bool test)
 #endif
     }
 
+    connect(this, SIGNAL(autotypeFinished()), SLOT(resetAutoTypeState()));
     connect(qApp, SIGNAL(aboutToQuit()), SLOT(unloadPlugin()));
 }
 
@@ -353,7 +354,6 @@ void AutoType::executeAutoTypeActions(const Entry* entry,
         }
     }
 
-    resetAutoTypeState();
     m_inAutoType.unlock();
     emit autotypeFinished();
 }
@@ -434,38 +434,33 @@ void AutoType::startGlobalAutoType(const QString& search)
  */
 void AutoType::performGlobalAutoType(const QList<QSharedPointer<Database>>& dbList, const QString& search)
 {
-    if (!m_plugin) {
-        return;
-    }
-
-    if (!m_inGlobalAutoTypeDialog.tryLock()) {
-        return;
-    }
-
-    if (m_windowTitleForGlobal.isEmpty()) {
-        m_inGlobalAutoTypeDialog.unlock();
+    if (!m_plugin || !m_inGlobalAutoTypeDialog.tryLock()) {
         return;
     }
 
     QList<AutoTypeMatch> matchList;
-    bool hideExpired = config()->get(Config::AutoTypeHideExpiredEntry).toBool();
+    // Generate entry/sequence match list if there is a valid window title
+    if (!m_windowTitleForGlobal.isEmpty()) {
+        bool hideExpired = config()->get(Config::AutoTypeHideExpiredEntry).toBool();
+        for (const auto& db : dbList) {
+            const QList<Entry*> dbEntries = db->rootGroup()->entriesRecursive();
+            for (auto entry : dbEntries) {
+                auto group = entry->group();
+                if (!group || !group->resolveAutoTypeEnabled() || !entry->autoTypeEnabled()) {
+                    continue;
+                }
 
-    for (const auto& db : dbList) {
-        const QList<Entry*> dbEntries = db->rootGroup()->entriesRecursive();
-        for (auto entry : dbEntries) {
-            auto group = entry->group();
-            if (!group || !group->resolveAutoTypeEnabled() || !entry->autoTypeEnabled()) {
-                continue;
-            }
-
-            if (hideExpired && entry->isExpired()) {
-                continue;
-            }
-            const QSet<QString> sequences = Tools::asSet(entry->autoTypeSequences(m_windowTitleForGlobal));
-            for (const auto& sequence : sequences) {
-                matchList << AutoTypeMatch(entry, sequence);
+                if (hideExpired && entry->isExpired()) {
+                    continue;
+                }
+                const QSet<QString> sequences = Tools::asSet(entry->autoTypeSequences(m_windowTitleForGlobal));
+                for (const auto& sequence : sequences) {
+                    matchList << AutoTypeMatch(entry, sequence);
+                }
             }
         }
+    } else {
+        qWarning() << "Auto-Type: Window title was empty from the operating system";
     }
 
     // Show the selection dialog if we always ask, have multiple matches, or no matches
@@ -493,11 +488,9 @@ void AutoType::performGlobalAutoType(const QList<QSharedPointer<Database>>& dbLi
                                            m_windowForGlobal,
                                            virtualMode ? AutoTypeExecutor::Mode::VIRTUAL
                                                        : AutoTypeExecutor::Mode::NORMAL);
-                    resetAutoTypeState();
                 });
         connect(selectDialog, &QDialog::rejected, this, [this] {
             restoreWindowState();
-            resetAutoTypeState();
             emit autotypeFinished();
         });
 
@@ -511,10 +504,8 @@ void AutoType::performGlobalAutoType(const QList<QSharedPointer<Database>>& dbLi
     } else if (!matchList.isEmpty()) {
         // Only one match and not asking, do it!
         executeAutoTypeActions(matchList.first().first, matchList.first().second, m_windowForGlobal);
-        resetAutoTypeState();
     } else {
         // We should never get here
-        resetAutoTypeState();
         emit autotypeFinished();
     }
 }
@@ -689,73 +680,22 @@ AutoType::parseSequence(const QString& entrySequence, const Entry* entry, QStrin
         } else if (placeholder.startsWith("t-conv:")) {
             // Reset to the original capture to preserve case
             placeholder = match.captured(3);
-            placeholder.replace("t-conv:", "", Qt::CaseInsensitive);
-            if (!placeholder.isEmpty()) {
-                auto sep = placeholder[0];
-                auto parts = placeholder.split(sep);
-                if (parts.size() >= 4) {
-                    auto resolved = entry->resolveMultiplePlaceholders(parts[1]);
-                    auto type = parts[2].toLower();
-
-                    if (type == "base64") {
-                        resolved = resolved.toUtf8().toBase64();
-                    } else if (type == "hex") {
-                        resolved = resolved.toUtf8().toHex();
-                    } else if (type == "uri") {
-                        resolved = QUrl::toPercentEncoding(resolved.toUtf8());
-                    } else if (type == "uri-dec") {
-                        resolved = QUrl::fromPercentEncoding(resolved.toUtf8());
-                    } else if (type.startsWith("u")) {
-                        resolved = resolved.toUpper();
-                    } else if (type.startsWith("l")) {
-                        resolved = resolved.toLower();
-                    } else {
-                        error = tr("Invalid conversion type: %1").arg(type);
-                        return {};
-                    }
-                    for (const QChar& ch : resolved) {
-                        actions << QSharedPointer<AutoTypeKey>::create(ch);
-                    }
-                } else {
-                    error = tr("Invalid conversion syntax: %1").arg(fullPlaceholder);
-                    return {};
-                }
-            } else {
-                error = tr("Invalid conversion syntax: %1").arg(fullPlaceholder);
+            auto resolved = entry->resolveConversionPlaceholder(placeholder, &error);
+            if (!error.isEmpty()) {
                 return {};
+            }
+            for (const QChar& ch : resolved) {
+                actions << QSharedPointer<AutoTypeKey>::create(ch);
             }
         } else if (placeholder.startsWith("t-replace-rx:")) {
             // Reset to the original capture to preserve case
             placeholder = match.captured(3);
-            placeholder.replace("t-replace-rx:", "", Qt::CaseInsensitive);
-            if (!placeholder.isEmpty()) {
-                auto sep = placeholder[0];
-                auto parts = placeholder.split(sep);
-                if (parts.size() >= 5) {
-                    auto resolvedText = entry->resolveMultiplePlaceholders(parts[1]);
-                    auto resolvedSearch = entry->resolveMultiplePlaceholders(parts[2]);
-                    auto resolvedReplace = entry->resolveMultiplePlaceholders(parts[3]);
-                    // Replace $<num> with \\<num> to support Qt substitutions
-                    resolvedReplace.replace(QRegularExpression(R"(\$(\d+))"), R"(\\1)");
-
-                    auto searchRegex = QRegularExpression(resolvedSearch);
-                    if (!searchRegex.isValid()) {
-                        error = tr("Invalid regular expression syntax %1\n%2")
-                                    .arg(resolvedSearch, searchRegex.errorString());
-                        return {};
-                    }
-
-                    auto resolved = resolvedText.replace(searchRegex, resolvedReplace);
-                    for (const QChar& ch : resolved) {
-                        actions << QSharedPointer<AutoTypeKey>::create(ch);
-                    }
-                } else {
-                    error = tr("Invalid conversion syntax: %1").arg(fullPlaceholder);
-                    return {};
-                }
-            } else {
-                error = tr("Invalid conversion syntax: %1").arg(fullPlaceholder);
+            auto resolved = entry->resolveRegexPlaceholder(placeholder, &error);
+            if (!error.isEmpty()) {
                 return {};
+            }
+            for (const QChar& ch : resolved) {
+                actions << QSharedPointer<AutoTypeKey>::create(ch);
             }
         } else if (placeholder.startsWith("mode=")) {
             auto mode = AutoTypeExecutor::Mode::NORMAL;

@@ -72,6 +72,7 @@ void PassphraseGenerator::setWordList(const QString& path)
     }
 
     QTextStream in(&file);
+    in.setCodec("UTF-8");
     QString line = in.readLine();
     bool isSigned = line.startsWith("-----BEGIN PGP SIGNED MESSAGE-----");
     if (isSigned) {
@@ -122,6 +123,7 @@ QString PassphraseGenerator::generatePassphrase() const
     }
 
     QStringList words;
+    int randomIndex = randomGen()->randomUInt(static_cast<quint32>(m_wordCount));
     for (int i = 0; i < m_wordCount; ++i) {
         int wordIndex = randomGen()->randomUInt(static_cast<quint32>(m_wordlist.size()));
         auto tmpWord = m_wordlist.at(wordIndex);
@@ -133,6 +135,9 @@ QString PassphraseGenerator::generatePassphrase() const
             break;
         case TITLECASE:
             tmpWord = tmpWord.replace(0, 1, tmpWord.left(1).toUpper());
+            break;
+        case MIXEDCASE:
+            tmpWord = i == randomIndex ? tmpWord.toUpper() : tmpWord.toLower();
             break;
         case LOWERCASE:
             tmpWord = tmpWord.toLower();

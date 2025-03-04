@@ -38,7 +38,8 @@ class YubiKey : public QObject
     Q_OBJECT
 
 public:
-    typedef QMap<YubiKeySlot, QString> KeyMap;
+    using KeyMap = QMap<YubiKeySlot, QString>;
+
     enum class ChallengeResult : int
     {
         YCR_ERROR = 0,
@@ -53,6 +54,7 @@ public:
     void findValidKeysAsync();
 
     KeyMap foundKeys();
+    int connectedKeys();
 
     ChallengeResult challenge(YubiKeySlot slot, const QByteArray& challenge, Botan::secure_vector<char>& response);
     bool testChallenge(YubiKeySlot slot, bool* wouldBlock = nullptr);
@@ -82,6 +84,8 @@ signals:
 private:
     explicit YubiKey();
 
+    void findValidKeys(const QMutexLocker& locker);
+
     static YubiKey* m_instance;
 
     QTimer m_interactionTimer;
@@ -92,6 +96,8 @@ private:
 
     KeyMap m_usbKeys;
     KeyMap m_pcscKeys;
+
+    int m_connectedKeys = 0;
 
     Q_DISABLE_COPY(YubiKey)
 };

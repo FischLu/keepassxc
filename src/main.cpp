@@ -84,6 +84,7 @@ int main(int argc, char** argv)
     QCommandLineOption pwstdinOption("pw-stdin", QObject::tr("read password of the database from stdin"));
     QCommandLineOption allowScreenCaptureOption("allow-screencapture",
                                                 QObject::tr("allow screenshots and app recording (Windows/macOS)"));
+    QCommandLineOption startMinimized("minimized", QObject::tr("start minimized to the system tray"));
 
     QCommandLineOption helpOption = parser.addHelpOption();
     QCommandLineOption versionOption = parser.addVersionOption();
@@ -95,6 +96,7 @@ int main(int argc, char** argv)
     parser.addOption(pwstdinOption);
     parser.addOption(debugInfoOption);
     parser.addOption(allowScreenCaptureOption);
+    parser.addOption(startMinimized);
 
     parser.process(app);
 
@@ -174,6 +176,8 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
+    Utils::setDefaultTextStreams();
+
     // Apply the configured theme before creating any GUI elements
     app.applyTheme();
 
@@ -192,9 +196,6 @@ int main(int argc, char** argv)
     mainWindow.setAllowScreenCapture(parser.isSet(allowScreenCaptureOption));
 
     const bool pwstdin = parser.isSet(pwstdinOption);
-    if (!fileNames.isEmpty() && pwstdin) {
-        Utils::setDefaultTextStreams();
-    }
     for (const QString& filename : fileNames) {
         QString password;
         if (pwstdin) {
@@ -208,7 +209,7 @@ int main(int argc, char** argv)
     }
 
     // start minimized if configured
-    if (config()->get(Config::GUI_MinimizeOnStartup).toBool()) {
+    if (parser.isSet(startMinimized) || config()->get(Config::GUI_MinimizeOnStartup).toBool()) {
         mainWindow.hideWindow();
     } else {
         mainWindow.bringToFront();
@@ -227,6 +228,8 @@ int main(int argc, char** argv)
     __lsan_do_leak_check();
     __lsan_disable();
 #endif
+
+    Utils::resetTextStreams();
 
     return exitCode;
 }

@@ -21,7 +21,9 @@ QCheckBox, QRadioButton {
     spacing: 10px;
 }
 
-ReportsDialog QTableView::item {
+ReportsDialog QTableView::item,
+EntryAttachmentsWidget QTableView::item
+{
     padding: 4px;
 }
 
@@ -30,8 +32,7 @@ DatabaseWidget, DatabaseWidget #groupView, DatabaseWidget #tagView {
     border: none;
 }
 
-EntryPreviewWidget QLineEdit, EntryPreviewWidget QTextEdit,
-EntryPreviewWidget TagsEdit
+EntryPreviewWidget *[blendIn="true"]
 {
     background-color: palette(window);
     border: none;
@@ -69,10 +70,6 @@ DatabaseWidget #SearchBanner, DatabaseWidget #KeeShareBanner {
 QPlainTextEdit, QTextEdit {
     background-color: palette(base);
     padding-left: 4px;
-}
-
-QStatusBar {
-    background-color: palette(window);
 }
 
 *[title="true"] {

@@ -102,7 +102,7 @@ DatabaseOpenWidget::DatabaseOpenWidget(QWidget* parent)
     m_ui->hardwareKeyProgress->setSizePolicy(sp);
 
 #ifdef WITH_XC_YUBIKEY
-    connect(m_deviceListener, SIGNAL(devicePlugged(bool, void*, void*)), this, SLOT(pollHardwareKey()));
+    connect(m_deviceListener, &DeviceListener::devicePlugged, this, [this] { pollHardwareKey(false, 500); });
     connect(YubiKey::instance(), SIGNAL(detectComplete(bool)), SLOT(hardwareKeyResponse(bool)), Qt::QueuedConnection);
 
     connect(YubiKey::instance(), &YubiKey::userInteractionRequest, this, [this] {
@@ -140,7 +140,12 @@ void DatabaseOpenWidget::toggleHardwareKeyComponent(bool state)
     m_ui->hardwareKeyProgress->setVisible(false);
     m_ui->hardwareKeyComponent->setVisible(state);
     m_ui->hardwareKeyCombo->setVisible(state && m_ui->hardwareKeyCombo->count() != 1);
+
     m_ui->noHardwareKeysFoundLabel->setVisible(!state && m_manualHardwareKeyRefresh);
+    m_ui->noHardwareKeysFoundLabel->setText(YubiKey::instance()->connectedKeys() > 0
+                                                ? tr("Hardware keys found, but no slots are configured.")
+                                                : tr("No hardware keys found."));
+
     if (!state) {
         m_ui->useHardwareKeyCheckBox->setChecked(false);
     }
@@ -213,6 +218,11 @@ bool DatabaseOpenWidget::event(QEvent* event)
 bool DatabaseOpenWidget::unlockingDatabase()
 {
     return m_unlockingDatabase;
+}
+
+void DatabaseOpenWidget::showMessage(const QString& text, MessageWidget::MessageType type, int autoHideTimeout)
+{
+    m_ui->messageWidget->showMessage(text, type, autoHideTimeout);
 }
 
 void DatabaseOpenWidget::load(const QString& filename)
@@ -295,6 +305,11 @@ QString DatabaseOpenWidget::filename()
 
 void DatabaseOpenWidget::enterKey(const QString& pw, const QString& keyFile)
 {
+    if (unlockingDatabase()) {
+        qWarning("Ignoring unlock request for %s because of running unlock action.", qPrintable(m_filename));
+        return;
+    }
+
     m_ui->editPassword->setText(pw);
     m_ui->keyFileLineEdit->setText(keyFile);
     m_blockQuickUnlock = true;
@@ -515,7 +530,7 @@ bool DatabaseOpenWidget::browseKeyFile()
     return true;
 }
 
-void DatabaseOpenWidget::pollHardwareKey(bool manualTrigger)
+void DatabaseOpenWidget::pollHardwareKey(bool manualTrigger, int delay)
 {
     if (m_pollingHardwareKey) {
         return;
@@ -529,9 +544,6 @@ void DatabaseOpenWidget::pollHardwareKey(bool manualTrigger)
     m_pollingHardwareKey = true;
     m_manualHardwareKeyRefresh = manualTrigger;
 
-    // Add a delay, if this is an automatic trigger, to allow the USB device to settle as
-    // the device may not report a valid serial number immediately after plugging in
-    int delay = manualTrigger ? 0 : 500;
     QTimer::singleShot(delay, this, [] { YubiKey::instance()->findValidKeysAsync(); });
 }
 

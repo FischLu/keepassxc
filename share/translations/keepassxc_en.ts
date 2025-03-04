@@ -243,6 +243,26 @@
         <source>Export KeePassXC Settings</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Small</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ApplicationSettingsWidgetGeneral</name>
@@ -545,6 +565,14 @@
         <source>Open browser on double clicking URL field in entry view</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Font size:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Font size selection</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ApplicationSettingsWidgetSecurity</name>
@@ -679,19 +707,6 @@
     </message>
     <message>
         <source>Entry does not have attribute for PICKCHARS: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Invalid conversion type: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Invalid conversion syntax: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Invalid regular expression syntax %1
-%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1050,10 +1065,6 @@ Do you want to overwrite the passkey in %1 - %2?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Browsers installed as snaps are currently not supported.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Enable integration for these browsers:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1276,6 +1287,10 @@ Do you want to overwrite the passkey in %1 - %2?</source>
         <source>KeePassXC-Browser is needed for the browser integration to work. &lt;br /&gt;Download it for %1 and %2 and %3.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Browsers installed using Snap or Flatpak are not supported with exception to Firefox installed using Snap.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>CloneDialog</name>
@@ -1430,6 +1445,10 @@ Do you want to overwrite the passkey in %1 - %2?</source>
 Are you sure you want to import?</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Tags</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>CsvParserModel</name>
@@ -1496,6 +1515,14 @@ Backup database located at %2</source>
     </message>
     <message>
         <source>Recycle Bin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Database file read error.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No file path was provided.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1675,6 +1702,10 @@ Are you sure you want to continue with this file?.</source>
     </message>
     <message>
         <source>&lt;a href=&quot;#&quot; style=&quot;text-decoration: underline&quot;&gt;I have a key file&lt;/a&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hardware keys found, but no slots are configured.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2665,24 +2696,6 @@ Save changes?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The database file has changed. Do you want to load the changes?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Merge Request</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The database file has changed and you have unsaved changes.
-Do you want to merge your changes?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Could not open the new database file while attempting to autoreload.
-Error: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Disable safe saves?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2766,6 +2779,50 @@ Disable safe saves and try again?</source>
     </message>
     <message>
         <source>Do you want to remove the passkey from this entry?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The database file &quot;%1&quot; was modified externally</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Do you want to load the changes?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reload database</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reloading database…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reload canceled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reload successful</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reload pending user action…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The database file &quot;%1&quot; was modified externally.&lt;br&gt;How would you like to proceed?&lt;br&gt;&lt;br&gt;Merge all changes&lt;br&gt;Ignore the changes on disk until save&lt;br&gt;Discard unsaved changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The database file &quot;%1&quot; was modified externally.&lt;br&gt;How would you like to proceed?&lt;br&gt;&lt;br&gt;Merge all changes then save&lt;br&gt;Overwrite the changes on disk&lt;br&gt;Discard unsaved changes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Database file overwritten.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Database file on disk cannot be unlocked with current credentials.&lt;br&gt;Enter new credentials and/or present hardware key to continue.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3361,6 +3418,10 @@ Would you like to correct it?</source>
         <source> seconds</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Clear agent</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>EditGroupWidget</name>
@@ -3814,11 +3875,39 @@ This may cause the affected plugins to malfunction.</source>
         <source>Passkey</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Invalid conversion type: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid conversion syntax: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid regular expression syntax %1
+%2</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>EntryAttachments</name>
     <message>
         <source>Cannot open file &quot;%1&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>EntryAttachmentsDialog</name>
+    <message>
+        <source>Form</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File contents...</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3857,14 +3946,6 @@ This may cause the affected plugins to malfunction.</source>
     </message>
     <message>
         <source>Remove</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Rename selected attachment</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Rename</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3974,6 +4055,18 @@ Error: %1</source>
     <message>
         <source>Attachment &quot;%1&quot; already exists. 
 Would you like to overwrite the existing attachment?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to preview an attachment: Attachment not found</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4172,6 +4265,10 @@ Would you like to overwrite the existing attachment?</source>
     </message>
     <message>
         <source>Background Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Group Path</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4684,6 +4781,14 @@ You can enable the DuckDuckGo website icon service in the security section of th
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Proton Pass (.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Proton Pass JSON Export</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Temporary Database</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4700,10 +4805,6 @@ You can enable the DuckDuckGo website icon service in the security section of th
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Remote Database (.kdbx)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>e.g.:
 get DatabaseOnRemote.kdbx {TEMP_DATABASE}
 exit
@@ -4711,6 +4812,10 @@ exit
 {TEMP_DATABASE} is used as placeholder to store the database in a temporary location
 The command has to exit. In case of `sftp` as last commend `exit` has to be sent
          </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remote Database (.kdbx)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5920,6 +6025,10 @@ Expect some bugs and minor issues, this version is meant for testing purposes.</
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Remote S&amp;ync…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Quit Application</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6021,6 +6130,10 @@ Expect some bugs and minor issues, this version is meant for testing purposes.</
     </message>
     <message>
         <source>Show Password Generator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Passkey From Entry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6168,11 +6281,11 @@ Expect some bugs and minor issues, this version is meant for testing purposes.</
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Remote S&amp;ync…</source>
+        <source>Show Group Panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Remove Passkey From Entry</source>
+        <source>Toggle Show Group Panel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6180,11 +6293,19 @@ Expect some bugs and minor issues, this version is meant for testing purposes.</
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Show Group Panel</source>
+        <source>Password Generator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Toggle Show Group Panel</source>
+        <source>E&amp;xpire Entry…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear SSH Agent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear all identities in ssh-agent</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6334,6 +6455,25 @@ Expect some bugs and minor issues, this version is meant for testing purposes.</
     </message>
     <message>
         <source>Please fill in the display name and an optional description for your new database:</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>NewEntryAttachmentsDialog</name>
+    <message>
+        <source>Attachment name cannot be empty</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Attachment with the same name already exists</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save attachment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New entry attachment</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -6903,10 +7043,6 @@ The following data is missing:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Character Count:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Word Case:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6916,10 +7052,6 @@ The following data is missing:
     </message>
     <message>
         <source>Add custom wordlist</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>character</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7036,6 +7168,10 @@ Do you want to overwrite it?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>MIXED case</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Excluded characters: &quot;0&quot;, &quot;1&quot;, &quot;l&quot;, &quot;I&quot;, &quot;O&quot;, &quot;|&quot;, &quot;﹒&quot;, &quot;B&quot;, &quot;8&quot;, &quot;G&quot;, &quot;6&quot;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7103,6 +7239,21 @@ Do you want to overwrite it?</source>
     </message>
     <message>
         <source>Press &amp;Tab between characters</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PreviewEntryAttachmentsDialog</name>
+    <message>
+        <source>Preview entry attachment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No preview available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Image format not supported</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -7934,10 +8085,6 @@ Do you want to overwrite it?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Format to use when exporting. Available choices are &apos;xml&apos; or &apos;csv&apos;. Defaults to &apos;xml&apos;.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Exports the content of a database to standard output in the specified format.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8540,18 +8687,6 @@ Kernel: %3 %4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>malformed string</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>missing closing quote</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>%1: (row, col) %2,%3</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>AES 256-bit</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9059,6 +9194,14 @@ This option is deprecated, use --set-key-file instead.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Encrypted files are not supported.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Proton Pass Import</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Delete plugin data?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9071,6 +9214,30 @@ This option is deprecated, use --set-key-file instead.</source>
     </message>
     <message>
         <source>Passkey</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Format to use when exporting. Available choices are &apos;xml&apos;, &apos;csv&apos; or &apos;html&apos;. Defaults to &apos;xml&apos;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>start minimized to the system tray</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>malformed string, possible unescaped delimiter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>missing closing delimiter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1, row: %2, column: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tags</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -9208,6 +9375,13 @@ This option is deprecated, use --set-key-file instead.</source>
         <source>Exclude from reports</source>
         <translation type="unfinished"></translation>
     </message>
+    <message numerus="yes">
+        <source>Expire Entry(s)…</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
     <message>
         <source>Only show entries that have a URL</source>
         <translation type="unfinished"></translation>
@@ -9234,6 +9408,14 @@ This option is deprecated, use --set-key-file instead.</source>
 </context>
 <context>
     <name>ReportsWidgetHealthcheck</name>
+    <message>
+        <source>Show expired entries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (Expired)</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>Hover over reason to show additional details. Double-click entries to edit.</source>
         <translation type="unfinished"></translation>
@@ -9297,16 +9479,15 @@ This option is deprecated, use --set-key-file instead.</source>
         <source>Exclude from reports</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>Show expired entries</source>
-        <translation type="unfinished"></translation>
+    <message numerus="yes">
+        <source>Expire Entry(s)…</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
     <message>
         <source>Show entries that have been excluded from reports</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source> (Expired)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -9406,6 +9587,13 @@ This option is deprecated, use --set-key-file instead.</source>
     <message>
         <source>Exclude from reports</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Expire Entry(s)…</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -9649,6 +9837,14 @@ This option is deprecated, use --set-key-file instead.</source>
     </message>
     <message>
         <source>No agent running, cannot list identities.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to remove all SSH identities from agent.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All SSH identities removed from agent.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10232,6 +10428,10 @@ Example: JBSWY3DPEHPK3PXP</source>
     </message>
     <message>
         <source>&lt;p&gt;If you own a &lt;a href=&quot;https://www.yubico.com/&quot;&gt;YubiKey&lt;/a&gt; or &lt;a href=&quot;https://onlykey.io&quot;&gt;OnlyKey&lt;/a&gt;, you can use it for additional security.&lt;/p&gt;&lt;p&gt;The key requires one of its slots to be programmed with &lt;a href=&quot;https://keepassxc.org/docs/#faq-yubikey-howto&quot;&gt;Challenge-Response&lt;/a&gt;.&lt;/p&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hardware keys found, but no slots are configured</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

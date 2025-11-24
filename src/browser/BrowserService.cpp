@@ -330,6 +330,7 @@ QJsonObject BrowserService::createNewGroup(const QString& groupName, bool isPass
             }
 #endif
             name = newGroup->name();
+            newGroup->setCustomDataTriState(BrowserService::OPTION_HIDE_ENTRY, Group::Disable);
             uuid = Tools::uuidToHex(newGroup->uuid());
             previousGroup = newGroup;
             continue;
@@ -412,7 +413,7 @@ BrowserService::findEntries(const EntryParameters& entryParameters, const String
             continue;
 
         case Unknown:
-            if (alwaysAllowAccess) {
+            if (alwaysAllowAccess || (entryParameters.httpAuth && ignoreHttpAuth)) {
                 allowedEntries.append(entry);
             } else {
                 entriesToConfirm.append(entry);
@@ -897,16 +898,6 @@ void BrowserService::addEntry(const EntryParameters& entryParameters,
 
     const QString host = QUrl(entryParameters.siteUrl).host();
     const QString submitHost = QUrl(entryParameters.formUrl).host();
-    BrowserEntryConfig config;
-    config.allow(host);
-
-    if (!submitHost.isEmpty()) {
-        config.allow(submitHost);
-    }
-    if (!entryParameters.realm.isEmpty()) {
-        config.setRealm(entryParameters.realm);
-    }
-    config.save(entry);
 
     if (downloadFavicon && m_currentDatabaseWidget) {
         m_currentDatabaseWidget->downloadFaviconInBackground(entry);
@@ -1191,7 +1182,7 @@ QJsonObject BrowserService::prepareEntry(const Entry* entry)
     res["uuid"] = entry->resolveMultiplePlaceholders(entry->uuidToHex());
     res["group"] = entry->resolveMultiplePlaceholders(entry->group()->name());
 
-    if (entry->hasTotp()) {
+    if (entry->hasValidTotp()) {
         res["totp"] = entry->totp();
     }
 
@@ -1571,11 +1562,11 @@ bool BrowserService::handleURLWithWildcards(const QUrl& entryQUrl, const QString
         }
 
         // Escape illegal characters
-        auto re = firstPart.replace(QRegularExpression(R"(([!\^\$\+\-\(\)@<>]))"), "\\\\1");
+        auto re = Tools::escapeRegex(firstPart);
 
         if (hostnameUsed) {
             // Replace all host parts with wildcards
-            re = re.replace(QString("%1.").arg(UrlTools::URL_WILDCARD), "(.*?)");
+            re = re.replace(QString("%1.").arg(UrlTools::URL_WILDCARD), "(.*?)\\.");
         }
 
         // Append a + to the end of regex to match all paths after the last asterisk

@@ -213,7 +213,7 @@ namespace KeeShareSettings
                         }
                     }
                 } else {
-                    qWarning("Unknown KeeShareSettings element %s", qPrintable(reader.name().toString()));
+                    qDebug("Unknown KeeShareSettings element %s", qPrintable(reader.name().toString()));
                     reader.skipCurrentElement();
                 }
             }
@@ -253,7 +253,7 @@ namespace KeeShareSettings
                 } else if (reader.name() == "PublicKey") {
                     own.certificate = Certificate::deserialize(reader);
                 } else {
-                    qWarning("Unknown KeeShareSettings element %s", qPrintable(reader.name().toString()));
+                    qDebug("Unknown KeeShareSettings element %s", qPrintable(reader.name().toString()));
                     reader.skipCurrentElement();
                 }
             }
@@ -262,8 +262,7 @@ namespace KeeShareSettings
     }
 
     Reference::Reference()
-        : type(Inactive)
-        , uuid(QUuid::createUuid())
+        : uuid(QUuid::createUuid())
     {
     }
 
@@ -320,12 +319,21 @@ namespace KeeShareSettings
             writer.writeStartElement("Password");
             writer.writeCharacters(reference.password.toUtf8().toBase64());
             writer.writeEndElement();
+            writer.writeStartElement("KeepGroups");
+            writer.writeCharacters(reference.keepGroups ? "True" : "False");
+            writer.writeEndElement();
         });
     }
 
     Reference Reference::deserialize(const QString& raw)
     {
+        if (raw.isEmpty()) {
+            return {};
+        }
+
         Reference reference;
+        // If KeepGroups is not present, default to false for backward compatibility
+        reference.keepGroups = false;
         xmlDeserialize(raw, [&](QXmlStreamReader& reader) {
             while (!reader.error() && reader.readNextStartElement()) {
                 if (reader.name() == "Type") {
@@ -346,8 +354,10 @@ namespace KeeShareSettings
                     reference.path = QString::fromUtf8(QByteArray::fromBase64(reader.readElementText().toLatin1()));
                 } else if (reader.name() == "Password") {
                     reference.password = QString::fromUtf8(QByteArray::fromBase64(reader.readElementText().toLatin1()));
+                } else if (reader.name() == "KeepGroups") {
+                    reference.keepGroups = reader.readElementText().compare("True") == 0;
                 } else {
-                    qWarning("Unknown Reference element %s", qPrintable(reader.name().toString()));
+                    qDebug("Unknown Reference element %s", qPrintable(reader.name().toString()));
                     reader.skipCurrentElement();
                 }
             }
@@ -363,7 +373,11 @@ namespace KeeShareSettings
 
         // Extract RSA key data to serialize an ssh-rsa public key.
         // ssh-rsa keys are currently not built into Botan
-        const auto rsaKey = static_cast<Botan::RSA_PrivateKey*>(sign.certificate.key.data());
+        // need a dynamic_cast here, because the base class is virtual
+        const auto rsaKey = dynamic_cast<Botan::RSA_PrivateKey*>(sign.certificate.key.data());
+        if (!rsaKey) {
+            return {};
+        }
 
         std::vector<uint8_t> rsaE(rsaKey->get_e().bytes());
         rsaKey->get_e().binary_encode(rsaE.data());

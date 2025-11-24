@@ -334,12 +334,15 @@ QList<QString> Entry::autoTypeSequences(const QString& windowTitle) const
     };
 
     QList<QString> sequenceList;
+    QList<QString> emptyWindowSequences;
 
     // Add window association matches
     const auto assocList = autoTypeAssociations()->getAll();
     for (const auto& assoc : assocList) {
         auto window = resolveMultiplePlaceholders(assoc.window);
-        if (!assoc.window.isEmpty() && windowMatches(window)) {
+        if (assoc.window.isEmpty()) {
+            emptyWindowSequences << assoc.sequence;
+        } else if (windowMatches(window)) {
             if (!assoc.sequence.isEmpty()) {
                 sequenceList << assoc.sequence;
             } else {
@@ -356,6 +359,11 @@ QList<QString> Entry::autoTypeSequences(const QString& windowTitle) const
     // Try to match url in window title
     if (config()->get(Config::AutoTypeEntryURLMatch).toBool() && windowMatchesUrl(resolvePlaceholder(url()))) {
         sequenceList << effectiveAutoTypeSequence();
+    }
+
+    // If any associations were made, include the empty window associations
+    if (!sequenceList.isEmpty()) {
+        sequenceList.append(emptyWindowSequences);
     }
 
     return sequenceList;
@@ -570,6 +578,12 @@ bool Entry::hasTotp() const
     return !m_data.totpSettings.isNull();
 }
 
+bool Entry::hasValidTotp() const
+{
+    auto error = Totp::checkValidSettings(m_data.totpSettings);
+    return error.isEmpty();
+}
+
 bool Entry::hasPasskey() const
 {
     return m_attributes->hasPasskey();
@@ -581,10 +595,13 @@ void Entry::removePasskey()
     removeTag(tr("Passkey"));
 }
 
-QString Entry::totp() const
+QString Entry::totp(bool* isValid) const
 {
     if (hasTotp()) {
-        return Totp::generateTotp(m_data.totpSettings);
+        return Totp::generateTotp(m_data.totpSettings, isValid);
+    }
+    if (isValid) {
+        *isValid = false;
     }
     return {};
 }
@@ -950,6 +967,68 @@ bool Entry::equals(const Entry* other, CompareItemOptions options) const
     return true;
 }
 
+QStringList Entry::calculateDifference(const Entry* other)
+{
+    QStringList modifiedFields;
+
+    if (*attributes() != *other->attributes()) {
+        bool foundAttribute = false;
+
+        if (title() != other->title()) {
+            modifiedFields << tr("Title");
+            foundAttribute = true;
+        }
+        if (username() != other->username()) {
+            modifiedFields << tr("Username");
+            foundAttribute = true;
+        }
+        if (password() != other->password()) {
+            modifiedFields << tr("Password");
+            foundAttribute = true;
+        }
+        if (url() != other->url()) {
+            modifiedFields << tr("URL");
+            foundAttribute = true;
+        }
+        if (notes() != other->notes()) {
+            modifiedFields << tr("Notes");
+            foundAttribute = true;
+        }
+
+        if (!foundAttribute) {
+            modifiedFields << tr("Custom Attributes");
+        }
+    }
+    if (iconNumber() != other->iconNumber() || iconUuid() != other->iconUuid()) {
+        modifiedFields << tr("Icon");
+    }
+    if (foregroundColor() != other->foregroundColor() || backgroundColor() != other->backgroundColor()) {
+        modifiedFields << tr("Color");
+    }
+    if (timeInfo().expires() != other->timeInfo().expires()
+        || timeInfo().expiryTime() != other->timeInfo().expiryTime()) {
+        modifiedFields << tr("Expiration");
+    }
+    if (totp() != other->totp()) {
+        modifiedFields << tr("TOTP");
+    }
+    if (*customData() != *other->customData()) {
+        modifiedFields << tr("Custom Data");
+    }
+    if (*attachments() != *other->attachments()) {
+        modifiedFields << tr("Attachments");
+    }
+    if (*autoTypeAssociations() != *other->autoTypeAssociations() || autoTypeEnabled() != other->autoTypeEnabled()
+        || defaultAutoTypeSequence() != other->defaultAutoTypeSequence()) {
+        modifiedFields << tr("Auto-Type");
+    }
+    if (tags() != other->tags()) {
+        modifiedFields << tr("Tags");
+    }
+
+    return modifiedFields;
+}
+
 Entry* Entry::clone(CloneFlags flags) const
 {
     auto entry = new Entry();
@@ -1059,6 +1138,15 @@ QString Entry::resolveMultiplePlaceholdersRecursive(const QString& str, int maxD
         return str;
     }
 
+    // Short circuit if we have escaped the placeholder brackets
+    if (str.startsWith("\\{") && str.endsWith("\\}")) {
+        // Replace the escaped brackets with actuals and move on
+        auto ret = str;
+        ret.replace(0, 2, "{");
+        ret.replace(ret.size() - 2, 2, "}");
+        return ret;
+    }
+
     QString result;
     auto matches = placeholderRegEx.globalMatch(str);
     int capEnd = 0;
@@ -1096,6 +1184,8 @@ QString Entry::resolvePlaceholderRecursive(const QString& placeholder, int maxDe
         return resolveMultiplePlaceholdersRecursive(notes(), maxDepth);
     case PlaceholderType::Url:
         return resolveMultiplePlaceholdersRecursive(url(), maxDepth);
+    case PlaceholderType::Uuid:
+        return uuidToHex();
     case PlaceholderType::DbDir: {
         QFileInfo fileInfo(database()->filePath());
         return fileInfo.absoluteDir().absolutePath();
@@ -1291,7 +1381,10 @@ QString Entry::resolveReferencePlaceholderRecursive(const QString& placeholder, 
 
     QString result;
     const QString searchIn = match.captured(EntryAttributes::SearchInGroupName);
-    const QString searchText = match.captured(EntryAttributes::SearchTextGroupName);
+    QString searchText = match.captured(EntryAttributes::SearchTextGroupName);
+
+    // Resolve placeholders in the search text (e.g., {UUID} -> actual UUID)
+    searchText = resolvePlaceholder(searchText);
 
     const EntryReferenceType searchInType = Entry::referenceType(searchIn);
 
@@ -1502,6 +1595,7 @@ Entry::PlaceholderType Entry::placeholderType(const QString& placeholder) const
         {QStringLiteral("{NOTES}"), PlaceholderType::Notes},
         {QStringLiteral("{TOTP}"), PlaceholderType::Totp},
         {QStringLiteral("{URL}"), PlaceholderType::Url},
+        {QStringLiteral("{UUID}"), PlaceholderType::Uuid},
         {QStringLiteral("{URL:RMVSCM}"), PlaceholderType::UrlWithoutScheme},
         {QStringLiteral("{URL:WITHOUTSCHEME}"), PlaceholderType::UrlWithoutScheme},
         {QStringLiteral("{URL:SCM}"), PlaceholderType::UrlScheme},

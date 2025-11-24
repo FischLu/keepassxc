@@ -24,6 +24,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QWindow>
+#include <QMenu>
 
 #include <ApplicationServices/ApplicationServices.h>
 
@@ -152,11 +153,22 @@ bool MacUtils::isCapslockEnabled()
 
 void MacUtils::setUserInputProtection(bool enable)
 {
+    static bool secureInputEnabled = false;
     if (enable) {
+        /*
+         * MacOS keeps a single counter over all apps that needs to be zero to disable secure input. By never going
+         * higher than 1 internally this makes sure secure input doesn't stay active after calling this function
+         * multiple times.
+         */
+        if (secureInputEnabled) {
+            DisableSecureEventInput();
+        }
         EnableSecureEventInput();
     } else {
         DisableSecureEventInput();
     }
+    // Store our last known state
+    secureInputEnabled = enable;
 }
 
 /**
@@ -189,6 +201,11 @@ void MacUtils::registerNativeEventFilter()
     eventSpec.eventClass = kEventClassKeyboard;
     eventSpec.eventKind = kEventHotKeyPressed;
     ::InstallApplicationEventHandler(MacUtils::hotkeyHandler, 1, &eventSpec, this, nullptr);
+}
+
+void MacUtils::configureWindowAndHelpMenus(QMainWindow* mainWindow, QMenu* helpMenu)
+{
+    return m_appkit->configureWindowAndHelpMenus(mainWindow, helpMenu);
 }
 
 bool MacUtils::registerGlobalShortcut(const QString& name, Qt::Key key, Qt::KeyboardModifiers modifiers, QString* error)

@@ -44,6 +44,7 @@
 #include "gui/FileDialog.h"
 #include "gui/GuiTools.h"
 #include "gui/MainWindow.h"
+#include "gui/MergeDialog.h"
 #include "gui/MessageBox.h"
 #include "gui/TotpDialog.h"
 #include "gui/TotpExportSettingsDialog.h"
@@ -554,6 +555,13 @@ void DatabaseWidget::copyTotp()
     if (!currentEntry) {
         return;
     }
+
+    // If the entry has no TOTP set, open the setup dialog first
+    if (!currentEntry->hasValidTotp()) {
+        setupTotp();
+        return;
+    }
+
     setClipboardTextAndMinimize(currentEntry->totp());
 }
 
@@ -877,12 +885,18 @@ void DatabaseWidget::performAutoType(const QString& sequence)
 {
     auto currentEntry = currentSelectedEntry();
     if (currentEntry) {
-        // TODO: Include name of previously active window in confirmation question
-        if (config()->get(Config::Security_AutoTypeAsk).toBool()
-            && MessageBox::question(
-                   this, tr("Confirm Auto-Type"), tr("Perform Auto-Type into the previously active window?"))
-                   != MessageBox::Yes) {
-            return;
+        // Check if we need to ask for confirmation
+        bool shouldAsk = config()->get(Config::Security_AutoTypeAsk).toBool();
+        bool skipMainWindowConfirmation = config()->get(Config::Security_AutoTypeSkipMainWindowConfirmation).toBool();
+
+        // Show confirmation if Security_AutoTypeAsk is true AND Security_AutoTypeSkipMainWindowConfirmation is false
+        if (shouldAsk && !skipMainWindowConfirmation) {
+            // TODO: Include name of previously active window in confirmation question
+            if (MessageBox::question(
+                    this, tr("Confirm Auto-Type"), tr("Perform Auto-Type into the previously active window?"))
+                != MessageBox::Yes) {
+                return;
+            }
         }
 
         if (sequence.isEmpty()) {
@@ -916,6 +930,16 @@ void DatabaseWidget::performAutoTypePasswordEnter()
 void DatabaseWidget::performAutoTypeTOTP()
 {
     performAutoType(QStringLiteral("{TOTP}"));
+}
+
+void DatabaseWidget::performAutoTypeURL()
+{
+    performAutoType(QStringLiteral("{URL}"));
+}
+
+void DatabaseWidget::performAutoTypeURLEnter()
+{
+    performAutoType(QStringLiteral("{URL}{ENTER}"));
 }
 
 void DatabaseWidget::openUrl()
@@ -1104,8 +1128,8 @@ void DatabaseWidget::deleteGroup()
     if (inRecycleBin || isRecycleBin || isRecycleBinSubgroup || !m_db->metadata()->recycleBinEnabled()) {
         auto result = MessageBox::question(
             this,
-            tr("Delete group"),
-            tr("Do you really want to delete the group \"%1\" for good?").arg(currentGroup->name().toHtmlEscaped()),
+            tr("Confirm Delete Group"),
+            tr("Do you really want to permanently delete the group \"%1\"?").arg(currentGroup->name().toHtmlEscaped()),
             MessageBox::Delete | MessageBox::Cancel,
             MessageBox::Cancel);
 
@@ -1114,7 +1138,7 @@ void DatabaseWidget::deleteGroup()
         }
     } else {
         auto result = MessageBox::question(this,
-                                           tr("Move group to recycle bin?"),
+                                           tr("Confirm Recycle Group"),
                                            tr("Do you really want to move the group "
                                               "\"%1\" to the recycle bin?")
                                                .arg(currentGroup->name().toHtmlEscaped()),
@@ -1371,18 +1395,30 @@ void DatabaseWidget::mergeDatabase(bool accepted)
             return;
         }
 
-        Merger merger(srcDb.data(), m_db.data());
-        QStringList changeList = merger.merge();
+#ifdef WITH_XC_KEESHARE
+        // Disable KeeShare while merging to avoid conflicts with incoming changes
+        KeeShare::instance()->setSharingEnabled(m_db, false);
+#endif
 
-        if (!changeList.isEmpty()) {
-            showMessage(tr("Successfully merged the database files."), MessageWidget::Information);
-        } else {
-            showMessage(tr("Database was not modified by merge operation."), MessageWidget::Information);
-        }
+        auto* mergeDialog = new MergeDialog(srcDb, m_db, this);
+        connect(mergeDialog, &MergeDialog::databaseMerged, [this](bool changed) {
+            if (changed) {
+                showMessage(tr("Successfully merged the selected database."), MessageWidget::Positive);
+                emit databaseMerged(m_db);
+            } else {
+                showMessage(tr("No changes were made by the merge operation."), MessageWidget::Information);
+            }
+        });
+        connect(mergeDialog, &MergeDialog::finished, [this](int result) {
+            if (result == QDialog::Rejected) {
+                showMessage(tr("Merge canceled, no changes were made."), MessageWidget::Information);
+            }
+#ifdef WITH_XC_KEESHARE
+            KeeShare::instance()->setSharingEnabled(m_db, true);
+#endif
+        });
+        mergeDialog->open();
     }
-
-    switchToMainView();
-    emit databaseMerged(m_db);
 }
 
 void DatabaseWidget::syncUnlockedDatabase(bool accepted)
@@ -1422,11 +1458,11 @@ bool DatabaseWidget::syncWithDatabase(const QSharedPointer<Database>& otherDb, Q
     emit updateSyncProgress(50, tr("Syncing..."));
     Merger firstMerge(m_db.data(), otherDb.data());
     Merger secondMerge(otherDb.data(), m_db.data());
-    QStringList changeList = firstMerge.merge() + secondMerge.merge();
+    auto changeList = firstMerge.merge() + secondMerge.merge();
 
     if (!changeList.isEmpty()) {
         // Save synced databases
-        if (!m_db->save(Database::Atomic, {}, &error)) {
+        if (!save()) {
             error = tr("Error while saving database %1: %2").arg(m_db->filePath(), error);
             return false;
         }
@@ -1527,7 +1563,7 @@ void DatabaseWidget::entryActivationSignalReceived(Entry* entry, EntryModel::Mod
         }
         break;
     case EntryModel::Totp:
-        if (entry->hasTotp()) {
+        if (entry->hasValidTotp()) {
             setClipboardTextAndMinimize(entry->totp());
         } else {
             setupTotp();
@@ -1547,12 +1583,21 @@ void DatabaseWidget::entryActivationSignalReceived(Entry* entry, EntryModel::Mod
     // case EntryModel::Attachments:
     //    break;
     case EntryModel::Url:
-        if (!entry->url().isEmpty() && config()->get(Config::OpenURLOnDoubleClick).toBool()) {
-            openUrlForEntry(entry);
-            break;
+        if (!entry->url().isEmpty()) {
+            switch (config()->get(Config::URLDoubleClickAction).toInt()) {
+            case 2: // Edit entry
+                switchToEntryEdit(entry);
+                break;
+            case 1: // Copy entry URL to clipboard
+                setClipboardTextAndMinimize(entry->resolveMultiplePlaceholders(entry->url()));
+                break;
+            case 0: // Open entry URL in browser (default)
+            default:
+                openUrlForEntry(entry);
+                break;
+            }
         }
-        // Note, order matters here. We want to fall into the default case.
-        [[fallthrough]];
+        break;
     default:
         switchToEntryEdit(entry);
     }
@@ -2386,7 +2431,7 @@ bool DatabaseWidget::currentEntryHasTotp()
     if (!currentEntry) {
         return false;
     }
-    return currentEntry->hasTotp();
+    return currentEntry->hasValidTotp();
 }
 
 #ifdef WITH_XC_SSHAGENT
@@ -2615,45 +2660,45 @@ bool DatabaseWidget::performSave(QString& errorMessage, const QString& fileName)
  */
 bool DatabaseWidget::saveBackup()
 {
-    while (true) {
-        QString oldFilePath = m_db->filePath();
-        if (!QFileInfo::exists(oldFilePath)) {
-            QString defaultFileName = config()->get(Config::DefaultDatabaseFileName).toString();
-            oldFilePath = QDir::toNativeSeparators(
-                FileDialog::getLastDir("db") + "/"
-                + (defaultFileName.isEmpty() ? tr("Passwords").append(".kdbx") : defaultFileName));
-        }
+    QString oldFilePath = m_db->filePath();
+    if (!QFileInfo::exists(oldFilePath)) {
+        QString defaultFileName = config()->get(Config::DefaultDatabaseFileName).toString();
+        oldFilePath =
+            QDir::toNativeSeparators(FileDialog::getLastDir("db") + "/"
+                                     + (defaultFileName.isEmpty() ? tr("Passwords").append(".kdbx") : defaultFileName));
+    }
 
-        const QString newFilePath = fileDialog()->getSaveFileName(this,
-                                                                  tr("Save database backup"),
-                                                                  FileDialog::getLastDir("backup", oldFilePath),
-                                                                  tr("KeePass 2 Database").append(" (*.kdbx)"));
+    const QString newFilePath = fileDialog()->getSaveFileName(this,
+                                                              tr("Save Database Backup"),
+                                                              FileDialog::getLastDir("backup", oldFilePath),
+                                                              tr("KeePass 2 Database").append(" (*.kdbx)"));
 
-        if (!newFilePath.isEmpty()) {
-            // Ensure we don't recurse back into this function
-            m_db->setFilePath(newFilePath);
-            m_saveAttempts = 0;
-
-            bool modified = m_db->isModified();
-
-            if (!save()) {
-                // Failed to save, try again
-                m_db->setFilePath(oldFilePath);
-                continue;
-            }
-
-            m_db->setFilePath(oldFilePath);
-            if (modified) {
-                // Source database is marked as clean when copy is saved, even if source has unsaved changes
-                m_db->markAsModified();
-            }
-            FileDialog::saveLastDir("backup", newFilePath, true);
-            return true;
-        }
-
-        // Canceled file selection
+    // Early out if we canceled the file selection
+    if (newFilePath.isEmpty()) {
         return false;
     }
+
+    // Record modified state so we can restore after save
+    bool modified = m_db->isModified();
+
+    QString error;
+    bool ok = m_db->saveAs(newFilePath, Database::DirectWrite, {}, &error);
+
+    // Restore database to original state
+    m_db->setFilePath(oldFilePath);
+    if (modified) {
+        // Source database is marked as clean when copy is saved, even if source has unsaved changes
+        m_db->markAsModified();
+    }
+
+    if (!ok) {
+        // Failed to save backup, post the error
+        showErrorMessage(tr("Failed to save backup database: %1").arg(error));
+        return false;
+    }
+
+    FileDialog::saveLastDir("backup", newFilePath, true);
+    return true;
 }
 
 void DatabaseWidget::showMessage(const QString& text,
@@ -2682,6 +2727,22 @@ bool DatabaseWidget::isRecycleBinSelected() const
     auto group = currentGroup();
     auto entry = currentSelectedEntry();
     return (group && group->isRecycled()) || (entry && entry->isRecycled());
+}
+
+bool DatabaseWidget::hasRecycledSelectedEntries() const
+{
+    if (!m_entryView) {
+        return false;
+    }
+
+    // Check if any of the selected entries are actually recycled
+    for (auto* entry : m_entryView->selectedEntries()) {
+        if (entry && entry->isRecycled()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void DatabaseWidget::emptyRecycleBin()

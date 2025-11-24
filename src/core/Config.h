@@ -50,9 +50,11 @@ public:
         SearchLimitGroup,
         MinimizeOnOpenUrl,
         OpenURLOnDoubleClick,
+        URLDoubleClickAction,
         HideWindowOnCopy,
         MinimizeOnCopy,
         MinimizeAfterUnlock,
+        AutoGeneratePasswordForNewEntries,
         DropToBackgroundOnCopy,
         UseGroupIconOnEntryCreation,
         AutoTypeEntryTitleMatch,
@@ -98,6 +100,7 @@ public:
         GUI_CompactMode,
         GUI_CheckForUpdates,
         GUI_CheckForUpdatesIncludeBetas,
+        GUI_SearchWaitForEnter,
         GUI_ShowExpiredEntriesOnDatabaseUnlock,
         GUI_ShowExpiredEntriesOnDatabaseUnlockOffsetDays,
         GUI_FontSizeOffset,
@@ -128,6 +131,7 @@ public:
         Security_HidePasswordPreviewPanel,
         Security_HideTotpPreviewPanel,
         Security_AutoTypeAsk,
+        Security_AutoTypeSkipMainWindowConfirmation,
         Security_IconDownloadFallback,
         Security_NoConfirmMoveEntryToRecycleBin,
         Security_EnableCopyOnDoubleClick,
@@ -230,7 +234,6 @@ public:
 
     static Config* instance();
     static void createConfigFromFile(const QString& configFileName, const QString& localConfigFileName = {});
-    static void createTempFileInstance();
     static bool isPortable();
     static QString portableConfigDir();
 

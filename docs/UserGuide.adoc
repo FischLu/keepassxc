@@ -7,6 +7,7 @@ KeePassXC Team <team@keepassxc.org>
 :stylesheet: styles/dark.css
 :toc: left
 :sectanchors:
+:experimental:
 ifdef::backend-pdf[]
 :title-page:
 :title-logo-image: {imagesdir}/kpxc_logo.png
@@ -35,6 +36,8 @@ include::topics/BrowserIntegration.adoc[tags=*]
 include::topics/Passkeys.adoc[tags=*]
 
 include::topics/AutoType.adoc[tags=*]
+
+include::topics/SecretService.adoc[tags=*]
 
 include::topics/SSHAgent.adoc[tags=*]
 

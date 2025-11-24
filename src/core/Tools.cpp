@@ -35,6 +35,7 @@
 #include <QIODevice>
 #include <QLocale>
 #include <QMetaProperty>
+#include <QMimeDatabase>
 #include <QRegularExpression>
 #include <QStringList>
 #include <QUrl>
@@ -150,23 +151,23 @@ namespace Tools
 
         if (seconds >= secondsInYear) {
             auto years = std::floor(seconds / secondsInYear);
-            return QObject::tr("over %1 year(s)", nullptr, years).arg(years);
+            return QObject::tr("over %1 year(s)", "", years).arg(years);
         } else if (seconds >= secondsInMonth) {
             auto months = std::round(seconds / secondsInMonth);
-            return QObject::tr("about %1 month(s)", nullptr, months).arg(months);
+            return QObject::tr("about %1 month(s)", "", months).arg(months);
         } else if (seconds >= secondsInWeek) {
             auto weeks = std::round(seconds / secondsInWeek);
-            return QObject::tr("%1 week(s)", nullptr, weeks).arg(weeks);
+            return QObject::tr("%1 week(s)", "", weeks).arg(weeks);
         } else if (seconds >= secondsInDay) {
             auto days = std::floor(seconds / secondsInDay);
-            return QObject::tr("%1 day(s)", nullptr, days).arg(days);
+            return QObject::tr("%1 day(s)", "", days).arg(days);
         } else if (seconds >= secondsInHour) {
             auto hours = std::floor(seconds / secondsInHour);
-            return QObject::tr("%1 hour(s)", nullptr, hours).arg(hours);
+            return QObject::tr("%1 hour(s)", "", hours).arg(hours);
         }
 
         auto minutes = std::floor(seconds / 60);
-        return QObject::tr("%1 minute(s)", nullptr, minutes).arg(minutes);
+        return QObject::tr("%1 minute(s)", "", minutes).arg(minutes);
     }
 
     bool readFromDevice(QIODevice* device, QByteArray& data, int size)
@@ -425,6 +426,34 @@ namespace Tools
         return filename.trimmed();
     }
 
+    QString cleanUsername()
+    {
+#if defined(Q_OS_WIN)
+        QString userName = qgetenv("USERNAME");
+        if (userName.isEmpty()) {
+            userName = qgetenv("USER");
+        }
+#else
+        QString userName = qgetenv("USER");
+        if (userName.isEmpty()) {
+            userName = qgetenv("USERNAME");
+        }
+#endif
+        // Sanitize username for file safety
+        userName = userName.trimmed();
+        // Replace <>:"/\|?* with _
+        userName.replace(QRegularExpression(R"([<>:\"\/\\|?*])"), "_");
+        // Remove trailing dots and spaces
+        userName.replace(QRegularExpression(R"([.\s]+$)"), "");
+
+        return userName;
+    }
+
+    QString escapeAccelerators(QString string)
+    {
+        return string.replace("&", "&&");
+    }
+
     QVariantMap qo2qvm(const QObject* object, const QStringList& ignoredProperties)
     {
         QVariantMap result;
@@ -478,29 +507,57 @@ namespace Tools
 
     MimeType toMimeType(const QString& mimeName)
     {
-        static QStringList textFormats = {
-            "text/",
-            "application/json",
-            "application/xml",
-            "application/soap+xml",
-            "application/x-yaml",
-            "application/protobuf",
-        };
-        static QStringList imageFormats = {"image/"};
+        const static QStringList TextFormats = {"text/",
+                                                "application/json",
+                                                "application/xml",
+                                                "application/soap+xml",
+                                                "application/x-yaml",
+                                                "application/protobuf",
+                                                "application/x-zerosize"};
+        const static QStringList HtmlFormats = {"text/html"};
+        const static QStringList MarkdownFormats = {"text/markdown", "text/x-web-markdown"};
+        const static QStringList ImageFormats = {"image/"};
 
         static auto isCompatible = [](const QString& format, const QStringList& list) {
             return std::any_of(
                 list.cbegin(), list.cend(), [&format](const auto& item) { return format.startsWith(item); });
         };
 
-        if (isCompatible(mimeName, imageFormats)) {
+        if (isCompatible(mimeName, ImageFormats)) {
             return MimeType::Image;
         }
 
-        if (isCompatible(mimeName, textFormats)) {
+        if (isCompatible(mimeName, TextFormats)) {
+            if (isCompatible(mimeName, HtmlFormats)) {
+                return MimeType::Html;
+            } else if (isCompatible(mimeName, MarkdownFormats)) {
+                return MimeType::Markdown;
+            }
+
             return MimeType::PlainText;
         }
 
         return MimeType::Unknown;
     }
+
+    MimeType getMimeType(const QByteArray& data)
+    {
+        QMimeDatabase mimeDb;
+        const auto mime = mimeDb.mimeTypeForData(data);
+        return toMimeType(mime.name());
+    }
+
+    MimeType getMimeType(const QFileInfo& fileInfo)
+    {
+        QMimeDatabase mimeDb;
+        const auto mime = mimeDb.mimeTypeForFile(fileInfo);
+        return toMimeType(mime.name());
+    }
+
+    bool isTextMimeType(MimeType mimeType)
+    {
+        return mimeType == Tools::MimeType::PlainText || mimeType == Tools::MimeType::Html
+               || mimeType == Tools::MimeType::Markdown;
+    }
+
 } // namespace Tools

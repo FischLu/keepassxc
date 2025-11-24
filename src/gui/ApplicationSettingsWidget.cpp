@@ -27,9 +27,11 @@
 
 #include "autotype/AutoType.h"
 #include "core/Translator.h"
+#include "gui/GuiTools.h"
 #include "gui/Icons.h"
 #include "gui/MainWindow.h"
 #include "gui/osutils/OSUtils.h"
+#include "gui/styles/StateColorPalette.h"
 #include "quickunlock/QuickUnlockInterface.h"
 
 #include "FileDialog.h"
@@ -60,28 +62,6 @@ public:
 private:
     QSharedPointer<ISettingsPage> settingsPage;
     QWidget* widget;
-};
-
-/**
- * Helper class to ignore mouse wheel events on non-focused widgets
- * NOTE: The widget must NOT have a focus policy of "WHEEL"
- */
-class MouseWheelEventFilter : public QObject
-{
-public:
-    explicit MouseWheelEventFilter(QObject* parent)
-        : QObject(parent){};
-
-protected:
-    bool eventFilter(QObject* obj, QEvent* event) override
-    {
-        const auto* widget = qobject_cast<QWidget*>(obj);
-        if (event->type() == QEvent::Wheel && widget && !widget->hasFocus()) {
-            event->ignore();
-            return true;
-        }
-        return QObject::eventFilter(obj, event);
-    }
 };
 
 ApplicationSettingsWidget::ApplicationSettingsWidget(QWidget* parent)
@@ -129,6 +109,8 @@ ApplicationSettingsWidget::ApplicationSettingsWidget(QWidget* parent)
     connect(m_generalUi->backupFilePathPicker, SIGNAL(pressed()), SLOT(selectBackupDirectory()));
     connect(m_generalUi->showExpiredEntriesOnDatabaseUnlockCheckBox, SIGNAL(toggled(bool)),
             SLOT(showExpiredEntriesOnDatabaseUnlockToggled(bool)));
+    connect(m_generalUi->autoTypeAskCheckBox, SIGNAL(toggled(bool)),
+            SLOT(autoTypeAskToggled(bool)));
 
     connect(m_secUi->clearClipboardCheckBox, SIGNAL(toggled(bool)),
             m_secUi->clearClipboardSpinBox, SLOT(setEnabled(bool)));
@@ -155,7 +137,10 @@ ApplicationSettingsWidget::ApplicationSettingsWidget(QWidget* parent)
                 m_generalUi->autoTypeShortcutWidget->setStyleSheet("");
             } else {
                 QToolTip::showText(mapToGlobal(rect().bottomLeft()), error);
-                m_generalUi->autoTypeShortcutWidget->setStyleSheet("background-color: #FF9696;");
+                StateColorPalette statePalette;
+                auto color = statePalette.color(StateColorPalette::ColorRole::Error);
+                m_generalUi->autoTypeShortcutWidget->setStyleSheet(
+                    QString("QLineEdit { background: %1; }").arg(color.name()));
             }
         });
     connect(m_generalUi->autoTypeShortcutWidget, &ShortcutWidget::shortcutReset, this, [this] {
@@ -226,7 +211,7 @@ void ApplicationSettingsWidget::loadSettings()
     m_generalUi->autoReloadOnChangeCheckBox->setChecked(config()->get(Config::AutoReloadOnChange).toBool());
     m_generalUi->minimizeAfterUnlockCheckBox->setChecked(config()->get(Config::MinimizeAfterUnlock).toBool());
     m_generalUi->minimizeOnOpenUrlCheckBox->setChecked(config()->get(Config::MinimizeOnOpenUrl).toBool());
-    m_generalUi->openUrlOnDoubleClick->setChecked(config()->get(Config::OpenURLOnDoubleClick).toBool());
+    m_generalUi->urlDoubleClickComboBox->setCurrentIndex(config()->get(Config::URLDoubleClickAction).toInt());
     m_generalUi->hideWindowOnCopyCheckBox->setChecked(config()->get(Config::HideWindowOnCopy).toBool());
     hideWindowOnCopyCheckBoxToggled(m_generalUi->hideWindowOnCopyCheckBox->isChecked());
     m_generalUi->minimizeOnCopyRadioButton->setChecked(config()->get(Config::MinimizeOnCopy).toBool());
@@ -241,6 +226,8 @@ void ApplicationSettingsWidget::loadSettings()
         !config()->get(Config::Security_NoConfirmMoveEntryToRecycleBin).toBool());
     m_generalUi->EnableCopyOnDoubleClickCheckBox->setChecked(
         config()->get(Config::Security_EnableCopyOnDoubleClick).toBool());
+    m_generalUi->autoGeneratePasswordForNewEntriesCheckBox->setChecked(
+        config()->get(Config::AutoGeneratePasswordForNewEntries).toBool());
 
     m_generalUi->languageComboBox->clear();
     QList<QPair<QString, QString>> languages = Translator::availableLanguages();
@@ -302,6 +289,9 @@ void ApplicationSettingsWidget::loadSettings()
     showExpiredEntriesOnDatabaseUnlockToggled(m_generalUi->showExpiredEntriesOnDatabaseUnlockCheckBox->isChecked());
 
     m_generalUi->autoTypeAskCheckBox->setChecked(config()->get(Config::Security_AutoTypeAsk).toBool());
+    m_generalUi->autoTypeSkipMainWindowConfirmationCheckBox->setChecked(
+        config()->get(Config::Security_AutoTypeSkipMainWindowConfirmation).toBool());
+    autoTypeAskToggled(m_generalUi->autoTypeAskCheckBox->isChecked());
     m_generalUi->autoTypeRelockDatabaseCheckBox->setChecked(config()->get(Config::Security_RelockAutoType).toBool());
 
     if (autoType()->isAvailable()) {
@@ -399,7 +389,7 @@ void ApplicationSettingsWidget::saveSettings()
     config()->set(Config::AutoReloadOnChange, m_generalUi->autoReloadOnChangeCheckBox->isChecked());
     config()->set(Config::MinimizeAfterUnlock, m_generalUi->minimizeAfterUnlockCheckBox->isChecked());
     config()->set(Config::MinimizeOnOpenUrl, m_generalUi->minimizeOnOpenUrlCheckBox->isChecked());
-    config()->set(Config::OpenURLOnDoubleClick, m_generalUi->openUrlOnDoubleClick->isChecked());
+    config()->set(Config::URLDoubleClickAction, m_generalUi->urlDoubleClickComboBox->currentIndex());
     config()->set(Config::HideWindowOnCopy, m_generalUi->hideWindowOnCopyCheckBox->isChecked());
     config()->set(Config::MinimizeOnCopy, m_generalUi->minimizeOnCopyRadioButton->isChecked());
     config()->set(Config::DropToBackgroundOnCopy, m_generalUi->dropToBackgroundOnCopyRadioButton->isChecked());
@@ -411,6 +401,8 @@ void ApplicationSettingsWidget::saveSettings()
     config()->set(Config::Security_NoConfirmMoveEntryToRecycleBin,
                   !m_generalUi->ConfirmMoveEntryToRecycleBinCheckBox->isChecked());
     config()->set(Config::Security_EnableCopyOnDoubleClick, m_generalUi->EnableCopyOnDoubleClickCheckBox->isChecked());
+    config()->set(Config::AutoGeneratePasswordForNewEntries,
+                  m_generalUi->autoGeneratePasswordForNewEntriesCheckBox->isChecked());
 
     auto language = m_generalUi->languageComboBox->currentData().toString();
     if (config()->get(Config::GUI_Language) != language) {
@@ -445,6 +437,8 @@ void ApplicationSettingsWidget::saveSettings()
                   m_generalUi->showExpiredEntriesOnDatabaseUnlockOffsetSpinBox->value());
 
     config()->set(Config::Security_AutoTypeAsk, m_generalUi->autoTypeAskCheckBox->isChecked());
+    config()->set(Config::Security_AutoTypeSkipMainWindowConfirmation,
+                  m_generalUi->autoTypeSkipMainWindowConfirmationCheckBox->isChecked());
     config()->set(Config::Security_RelockAutoType, m_generalUi->autoTypeRelockDatabaseCheckBox->isChecked());
 
     if (autoType()->isAvailable()) {
@@ -616,6 +610,11 @@ void ApplicationSettingsWidget::checkUpdatesToggled(bool checked)
 void ApplicationSettingsWidget::showExpiredEntriesOnDatabaseUnlockToggled(bool checked)
 {
     m_generalUi->showExpiredEntriesOnDatabaseUnlockOffsetSpinBox->setEnabled(checked);
+}
+
+void ApplicationSettingsWidget::autoTypeAskToggled(bool checked)
+{
+    m_generalUi->autoTypeSkipMainWindowConfirmationCheckBox->setEnabled(checked);
 }
 
 void ApplicationSettingsWidget::selectBackupDirectory()

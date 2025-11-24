@@ -109,7 +109,7 @@ public:
     QString password() const;
     QString notes() const;
     QString attribute(const QString& key) const;
-    QString totp() const;
+    QString totp(bool* isValid = nullptr) const;
     QString totpSettingsString() const;
     QSharedPointer<Totp::Settings> totpSettings() const;
     Group* previousParentGroup();
@@ -126,6 +126,7 @@ public:
     void removePasskey();
 
     bool hasTotp() const;
+    bool hasValidTotp() const;
     bool isExpired() const;
     bool willExpireInDays(int days) const;
     void expireNow();
@@ -178,6 +179,13 @@ public:
 
     bool equals(const Entry* other, CompareItemOptions options = CompareItemDefault) const;
 
+    /**
+     * Determine differences between attributes of this and another entry.
+     *
+     * @return The list of attribute names that are different between the two entries
+     */
+    QStringList calculateDifference(const Entry* other);
+
     enum CloneFlag
     {
         CloneNoFlags = 0,
@@ -202,6 +210,7 @@ public:
         Notes,
         Totp,
         Url,
+        Uuid,
         UrlWithoutScheme,
         UrlScheme,
         UrlHost,

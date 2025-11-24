@@ -67,8 +67,10 @@ static const QHash<Config::ConfigKey, ConfigDirective> configStrings = {
     {Config::SearchLimitGroup,{QS("SearchLimitGroup"), Roaming, false}},
     {Config::MinimizeOnOpenUrl,{QS("MinimizeOnOpenUrl"), Roaming, false}},
     {Config::OpenURLOnDoubleClick, {QS("OpenURLOnDoubleClick"), Roaming, true}},
+    {Config::URLDoubleClickAction, {QS("URLDoubleClickAction"), Roaming, 0}},
     {Config::HideWindowOnCopy,{QS("HideWindowOnCopy"), Roaming, false}},
     {Config::MinimizeOnCopy,{QS("MinimizeOnCopy"), Roaming, true}},
+    {Config::AutoGeneratePasswordForNewEntries,{QS("AutoGeneratePasswordForNewEntries"), Roaming, false}},
     {Config::MinimizeAfterUnlock,{QS("MinimizeAfterUnlock"), Roaming, false}},
     {Config::DropToBackgroundOnCopy,{QS("DropToBackgroundOnCopy"), Roaming, false}},
     {Config::UseGroupIconOnEntryCreation,{QS("UseGroupIconOnEntryCreation"), Roaming, true}},
@@ -117,6 +119,7 @@ static const QHash<Config::ConfigKey, ConfigDirective> configStrings = {
     {Config::GUI_CheckForUpdates, {QS("GUI/CheckForUpdates"), Roaming, true}},
     {Config::GUI_CheckForUpdatesNextCheck, {QS("GUI/CheckForUpdatesNextCheck"), Local, 0}},
     {Config::GUI_CheckForUpdatesIncludeBetas, {QS("GUI/CheckForUpdatesIncludeBetas"), Roaming, false}},
+    {Config::GUI_SearchWaitForEnter, {QS("GUI/SearchWaitForEnter"), Roaming, false}},
     {Config::GUI_ShowExpiredEntriesOnDatabaseUnlock, {QS("GUI/ShowExpiredEntriesOnDatabaseUnlock"), Roaming, true}},
     {Config::GUI_ShowExpiredEntriesOnDatabaseUnlockOffsetDays, {QS("GUI/ShowExpiredEntriesOnDatabaseUnlockOffsetDays"), Roaming, 3}},
     {Config::GUI_FontSizeOffset, {QS("GUI/FontSizeOffset"), Local, 0}},
@@ -136,8 +139,8 @@ static const QHash<Config::ConfigKey, ConfigDirective> configStrings = {
     {Config::Security_ClearSearch, {QS("Security/ClearSearch"), Roaming, false}},
     {Config::Security_ClearSearchTimeout, {QS("Security/ClearSearchTimeout"), Roaming, 5}},
     {Config::Security_HideNotes, {QS("Security/Security_HideNotes"), Roaming, false}},
-    {Config::Security_LockDatabaseIdle, {QS("Security/LockDatabaseIdle"), Roaming, false}},
-    {Config::Security_LockDatabaseIdleSeconds, {QS("Security/LockDatabaseIdleSeconds"), Roaming, 240}},
+    {Config::Security_LockDatabaseIdle, {QS("Security/LockDatabaseIdle"), Roaming, true}},
+    {Config::Security_LockDatabaseIdleSeconds, {QS("Security/LockDatabaseIdleSeconds"), Roaming, 900}},
     {Config::Security_LockDatabaseMinimize, {QS("Security/LockDatabaseMinimize"), Roaming, false}},
     {Config::Security_LockDatabaseScreenLock, {QS("Security/LockDatabaseScreenLock"), Roaming, true}},
     {Config::Security_LockDatabaseOnUserSwitch, {QS("Security/LockDatabaseOnUserSwitch"), Roaming, true}},
@@ -147,6 +150,7 @@ static const QHash<Config::ConfigKey, ConfigDirective> configStrings = {
     {Config::Security_HidePasswordPreviewPanel, {QS("Security/HidePasswordPreviewPanel"), Roaming, true}},
     {Config::Security_HideTotpPreviewPanel, {QS("Security/HideTotpPreviewPanel"), Roaming, false}},
     {Config::Security_AutoTypeAsk, {QS("Security/AutotypeAsk"), Roaming, true}},
+    {Config::Security_AutoTypeSkipMainWindowConfirmation, {QS("Security/AutoTypeSkipMainWindowConfirmation"), Roaming, false}},
     {Config::Security_IconDownloadFallback, {QS("Security/IconDownloadFallback"), Roaming, false}},
     {Config::Security_NoConfirmMoveEntryToRecycleBin,{QS("Security/NoConfirmMoveEntryToRecycleBin"), Roaming, true}},
     {Config::Security_EnableCopyOnDoubleClick,{QS("Security/EnableCopyOnDoubleClick"), Roaming, false}},
@@ -489,6 +493,15 @@ void Config::migrate()
         remove(GUI_ListViewState);
     }
 
+    // Migrate from boolean OpenURLOnDoubleClick to enum URLDoubleClickAction
+    if (m_settings->contains(configStrings[OpenURLOnDoubleClick].name)
+        && !m_settings->contains(configStrings[URLDoubleClickAction].name)) {
+        bool openUrlOnDoubleClick = get(OpenURLOnDoubleClick).toBool();
+        // Convert: true (open browser) -> 0, false (edit entry) -> 2
+        set(URLDoubleClickAction, openUrlOnDoubleClick ? 0 : 2);
+        // Keep the old setting for now for compatibility
+    }
+
     m_settings->setValue("ConfigVersion", CONFIG_VERSION);
     sync();
 }
@@ -617,19 +630,6 @@ void Config::createConfigFromFile(const QString& configFileName, const QString& 
     m_instance = new Config(configFileName.isEmpty() ? defaultFiles.first : configFileName,
                             localConfigFileName.isEmpty() ? defaultFiles.second : localConfigFileName,
                             qApp);
-}
-
-void Config::createTempFileInstance()
-{
-    if (m_instance) {
-        delete m_instance;
-    }
-    auto* tmpFile = new QTemporaryFile();
-    bool openResult = tmpFile->open();
-    Q_ASSERT(openResult);
-    Q_UNUSED(openResult);
-    m_instance = new Config(tmpFile->fileName(), "", qApp);
-    tmpFile->setParent(m_instance);
 }
 
 bool Config::isPortable()

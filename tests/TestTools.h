@@ -18,7 +18,7 @@
 #ifndef KEEPASSX_TESTTOOLS_H
 #define KEEPASSX_TESTTOOLS_H
 
-#include "core/Tools.h"
+#include <QObject>
 
 class TestTools : public QObject
 {
@@ -38,6 +38,12 @@ private slots:
     void testConvertToRegex_data();
     void testArrayContainsValues();
     void testMimeTypes();
+    void testGetMimeType();
+    void testGetMimeTypeByFileInfo();
+    void testIsTextMimeType();
+    void testCleanUsername();
+    void testCleanUsername_data();
+    void testEscapeAccelerators();
 };
 
 #endif // KEEPASSX_TESTTOOLS_H

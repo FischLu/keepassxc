@@ -22,6 +22,7 @@
 #include "core/Global.h"
 
 #include <QDateTime>
+#include <QFileInfo>
 #include <QList>
 #include <QProcessEnvironment>
 #include <QSet>
@@ -47,6 +48,8 @@ namespace Tools
     QString envSubstitute(const QString& filepath,
                           QProcessEnvironment environment = QProcessEnvironment::systemEnvironment());
     QString cleanFilename(QString filename);
+    QString cleanUsername();
+    QString escapeAccelerators(QString string);
 
     template <class T> QSet<T> asSet(const QList<T>& a)
     {
@@ -119,10 +122,16 @@ namespace Tools
     {
         Image,
         PlainText,
+        Html,
+        Markdown,
         Unknown
     };
 
     MimeType toMimeType(const QString& mimeName);
+    MimeType getMimeType(const QByteArray& data);
+    MimeType getMimeType(const QFileInfo& fileInfo);
+    bool isTextMimeType(MimeType mimeType);
+
 } // namespace Tools
 
 #endif // KEEPASSX_TOOLS_H

@@ -99,6 +99,7 @@ public:
     bool canDeleteCurrentGroup() const;
     bool isGroupSelected() const;
     bool isRecycleBinSelected() const;
+    bool hasRecycledSelectedEntries() const;
     int numberOfSelectedEntries() const;
     int currentEntryIndex() const;
 
@@ -214,6 +215,8 @@ public slots:
     void performAutoTypePassword();
     void performAutoTypePasswordEnter();
     void performAutoTypeTOTP();
+    void performAutoTypeURL();
+    void performAutoTypeURLEnter();
     void setClipboardTextAndMinimize(const QString& text);
     void openUrl();
     void downloadSelectedFavicons();

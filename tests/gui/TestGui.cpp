@@ -94,7 +94,10 @@ int main(int argc, char* argv[])
 void TestGui::initTestCase()
 {
     QVERIFY(Crypto::init());
-    Config::createTempFileInstance();
+
+    // Create temporary config file
+    Config::createConfigFromFile(TemporaryFile::createTempConfigFile(), {});
+
     QLocale::setDefault(QLocale::c());
     Application::bootstrap();
 
@@ -361,6 +364,10 @@ void TestGui::testMergeDatabase()
 
     QTest::keyClicks(editPasswordMerge, "a");
     QTest::keyClick(editPasswordMerge, Qt::Key_Enter);
+
+    // confirm merge in confirmation dialog
+    QTRY_VERIFY(QApplication::focusWindow()->title().contains("Merge"));
+    QTest::keyClick(QApplication::focusWidget(), Qt::Key_Enter);
 
     QTRY_COMPARE(dbMergeSpy.count(), 1);
     QTRY_VERIFY(m_tabWidget->tabText(m_tabWidget->currentIndex()).contains("*"));
@@ -1123,6 +1130,7 @@ void TestGui::testSearch()
     auto* searchWidget = toolBar->findChild<SearchWidget*>("SearchWidget");
     QVERIFY(searchWidget->isEnabled());
     auto* searchTextEdit = searchWidget->findChild<QLineEdit*>("searchEdit");
+    auto* waitForEnterAction = searchWidget->findChild<QAction*>("actionSearchWaitForEnter");
 
     auto* entryView = m_dbWidget->findChild<EntryView*>("entryView");
     QVERIFY(entryView->isVisible());
@@ -1133,6 +1141,50 @@ void TestGui::testSearch()
     auto* helpPanel = searchWidget->findChild<QWidget*>("SearchHelpWidget");
     QVERIFY(helpButton->isVisible());
     QVERIFY(!helpPanel->isVisible());
+
+    // Test "wait for enter" toggle
+    QVERIFY(waitForEnterAction->isVisible());
+    QVERIFY(waitForEnterAction->isCheckable());
+
+    // Test search with "wait for enter" disabled (default)
+    searchTextEdit->clear();
+    QTest::keyClicks(searchTextEdit, "ZZZ");
+    QTRY_COMPARE(searchTextEdit->text(), QString("ZZZ"));
+    QTRY_VERIFY(m_dbWidget->isSearchActive());
+    QTRY_COMPARE(entryView->model()->rowCount(), 0);
+
+    // Clear search
+    searchTextEdit->clear();
+    QTRY_VERIFY(!m_dbWidget->isSearchActive());
+
+    // Enable "wait for enter" mode
+    waitForEnterAction->trigger();
+    QVERIFY(waitForEnterAction->isChecked());
+
+    // Test search with "wait for enter" enabled
+    QTest::keyClicks(searchTextEdit, "ZZZ");
+    QTRY_VERIFY(!m_dbWidget->isSearchActive());
+
+    // Press Enter to execute search
+    QTest::keyClick(searchTextEdit, Qt::Key_Return);
+    QTRY_VERIFY(m_dbWidget->isSearchActive());
+    QTRY_COMPARE(entryView->model()->rowCount(), 0);
+    // Check that search remains active even after clearing
+    searchTextEdit->clear();
+    QTRY_VERIFY(m_dbWidget->isSearchActive());
+
+    // Disable "wait for enter" mode
+    waitForEnterAction->trigger();
+    QVERIFY(!waitForEnterAction->isChecked());
+
+    // Test search with "wait for enter" disabled again
+    QTest::keyClicks(searchTextEdit, "ZZZ");
+    QTRY_VERIFY(m_dbWidget->isSearchActive());
+    QTRY_COMPARE(entryView->model()->rowCount(), 0);
+
+    // Clear search
+    searchTextEdit->clear();
+    QTRY_VERIFY(!m_dbWidget->isSearchActive());
 
     // Enter search
     QTest::mouseClick(searchTextEdit, Qt::LeftButton);

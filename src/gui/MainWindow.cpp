@@ -38,6 +38,7 @@
 #include "autotype/AutoType.h"
 #include "core/InactivityTimer.h"
 #include "core/Resources.h"
+#include "core/Tools.h"
 #include "gui/AboutDialog.h"
 #include "gui/ActionCollection.h"
 #include "gui/Icons.h"
@@ -92,6 +93,10 @@ MainWindow::MainWindow()
     g_MainWindow = this;
 
     m_ui->setupUi(this);
+
+#ifdef Q_OS_MACOS
+    macUtils()->configureWindowAndHelpMenus(this, m_ui->menuHelp);
+#endif
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_MACOS) && !defined(QT_NO_DBUS)
     new MainWindowAdaptor(this);
@@ -172,6 +177,8 @@ MainWindow::MainWindow()
     autotypeMenu->addAction(m_ui->actionEntryAutoTypePassword);
     autotypeMenu->addAction(m_ui->actionEntryAutoTypePasswordEnter);
     autotypeMenu->addAction(m_ui->actionEntryAutoTypeTOTP);
+    autotypeMenu->addAction(m_ui->actionEntryAutoTypeURL);
+    autotypeMenu->addAction(m_ui->actionEntryAutoTypeURLEnter);
     m_ui->actionEntryAutoType->setMenu(autotypeMenu);
     auto autoTypeButton = qobject_cast<QToolButton*>(m_ui->toolBar->widgetForAction(m_ui->actionEntryAutoType));
     if (autoTypeButton) {
@@ -186,9 +193,6 @@ MainWindow::MainWindow()
     if (databaseLockButton) {
         databaseLockButton->setPopupMode(QToolButton::MenuButtonPopup);
     }
-
-    restoreGeometry(config()->get(Config::GUI_MainWindowGeometry).toByteArray());
-    restoreState(config()->get(Config::GUI_MainWindowState).toByteArray());
 
     connect(m_ui->tabWidget, &DatabaseTabWidget::databaseLocked, this, &MainWindow::databaseLocked);
     connect(m_ui->tabWidget, &DatabaseTabWidget::databaseUnlocked, this, &MainWindow::databaseUnlocked);
@@ -273,7 +277,7 @@ MainWindow::MainWindow()
     m_ui->actionAllowScreenCapture->setVisible(osUtils->canPreventScreenCapture());
 
     m_inactivityTimer = new InactivityTimer(this);
-    connect(m_inactivityTimer, SIGNAL(inactivityDetected()), this, SLOT(lockDatabasesAfterInactivity()));
+    connect(m_inactivityTimer, SIGNAL(inactivityDetected()), this, SLOT(lockAllDatabases()));
     applySettingsChanges();
 
     // Qt 5.10 introduced a new "feature" to hide shortcuts in context menus
@@ -387,6 +391,8 @@ MainWindow::MainWindow()
     m_ui->actionEntryAutoTypePassword->setIcon(icons()->icon("auto-type"));
     m_ui->actionEntryAutoTypePasswordEnter->setIcon(icons()->icon("auto-type"));
     m_ui->actionEntryAutoTypeTOTP->setIcon(icons()->icon("auto-type"));
+    m_ui->actionEntryAutoTypeURL->setIcon(icons()->icon("auto-type"));
+    m_ui->actionEntryAutoTypeURLEnter->setIcon(icons()->icon("auto-type"));
     m_ui->actionEntryMoveUp->setIcon(icons()->icon("move-up"));
     m_ui->actionEntryMoveDown->setIcon(icons()->icon("move-down"));
     m_ui->actionEntryCopyUsername->setIcon(icons()->icon("username-copy"));
@@ -526,6 +532,9 @@ MainWindow::MainWindow()
     m_actionMultiplexer.connect(
         m_ui->actionEntryAutoTypePasswordEnter, SIGNAL(triggered()), SLOT(performAutoTypePasswordEnter()));
     m_actionMultiplexer.connect(m_ui->actionEntryAutoTypeTOTP, SIGNAL(triggered()), SLOT(performAutoTypeTOTP()));
+    m_actionMultiplexer.connect(m_ui->actionEntryAutoTypeURL, SIGNAL(triggered()), SLOT(performAutoTypeURL()));
+    m_actionMultiplexer.connect(
+        m_ui->actionEntryAutoTypeURLEnter, SIGNAL(triggered()), SLOT(performAutoTypeURLEnter()));
     m_actionMultiplexer.connect(m_ui->actionEntryOpenUrl, SIGNAL(triggered()), SLOT(openUrl()));
     m_actionMultiplexer.connect(m_ui->actionEntryDownloadIcon, SIGNAL(triggered()), SLOT(downloadSelectedFavicons()));
 #ifdef WITH_XC_SSHAGENT
@@ -630,12 +639,13 @@ MainWindow::MainWindow()
     auto* hidePreRelWarn = new QAction(tr("Don't show again for this version"), m_ui->globalMessageWidget);
     m_ui->globalMessageWidget->addAction(hidePreRelWarn);
     auto hidePreRelWarnConn = QSharedPointer<QMetaObject::Connection>::create();
-    *hidePreRelWarnConn = connect(m_ui->globalMessageWidget, &KMessageWidget::hideAnimationFinished, [=] {
-        m_ui->globalMessageWidget->removeAction(hidePreRelWarn);
-        disconnect(*hidePreRelWarnConn);
-        hidePreRelWarn->deleteLater();
-    });
-    connect(hidePreRelWarn, &QAction::triggered, [=] {
+    *hidePreRelWarnConn = connect(
+        m_ui->globalMessageWidget, &KMessageWidget::hideAnimationFinished, [this, hidePreRelWarn, hidePreRelWarnConn] {
+            m_ui->globalMessageWidget->removeAction(hidePreRelWarn);
+            disconnect(*hidePreRelWarnConn);
+            hidePreRelWarn->deleteLater();
+        });
+    connect(hidePreRelWarn, &QAction::triggered, [this] {
         m_ui->globalMessageWidget->animatedHide();
         config()->set(Config::Messages_HidePreReleaseWarning, KEEPASSXC_VERSION);
     });
@@ -778,7 +788,7 @@ void MainWindow::updateLastDatabasesMenu()
 
     const QStringList lastDatabases = config()->get(Config::LastDatabases).toStringList();
     for (const QString& database : lastDatabases) {
-        QAction* action = m_ui->menuRecentDatabases->addAction(database);
+        QAction* action = m_ui->menuRecentDatabases->addAction(Tools::escapeAccelerators(database));
         action->setData(database);
         m_lastDatabasesActions->addAction(action);
     }
@@ -821,6 +831,8 @@ void MainWindow::updateSetTagsMenu()
         return nullptr;
     };
 
+    m_ui->menuTags->setTearOffEnabled(true);
+
     auto dbWidget = m_ui->tabWidget->currentDatabaseWidget();
     if (dbWidget) {
         // Enumerate tags applied to the selected entries
@@ -831,31 +843,30 @@ void MainWindow::updateSetTagsMenu()
             }
         }
 
-        // Add known database tags as actions and set checked if
-        // a selected entry has that tag
+        // Remove missing tags
         const auto tagList = dbWidget->database()->tagList();
-        for (const auto& tag : tagList) {
-            auto action = actionForTag(m_ui->menuTags, tag);
-            if (action) {
-                action->setChecked(selectedTags.contains(tag));
-            } else {
-                action = m_ui->menuTags->addAction(icons()->icon("tag"), tag);
-                action->setCheckable(true);
-                action->setChecked(selectedTags.contains(tag));
-                m_setTagsMenuActions->addAction(action);
+        for (const auto action : m_ui->menuTags->actions()) {
+            if (!tagList.contains(action->text()) || !action->isEnabled()) {
+                delete action;
             }
         }
 
-        // Remove missing tags
-        for (const auto action : m_ui->menuTags->actions()) {
-            if (!tagList.contains(action->text())) {
-                action->deleteLater();
+        // Add known database tags as actions and set checked if
+        // a selected entry has that tag
+        for (const auto& tag : tagList) {
+            auto action = actionForTag(m_ui->menuTags, tag);
+            if (!action) {
+                action = m_ui->menuTags->addAction(icons()->icon("tag"), tag);
+                action->setCheckable(true);
+                m_setTagsMenuActions->addAction(action);
             }
+            action->setChecked(selectedTags.contains(tag));
         }
     }
 
     // If no tags exist in the database then show a tip to the user
     if (m_ui->menuTags->isEmpty()) {
+        m_ui->menuTags->setTearOffEnabled(false);
         auto action = m_ui->menuTags->addAction(tr("No Tags"));
         action->setEnabled(false);
     }
@@ -936,8 +947,20 @@ void MainWindow::updateMenuActionState()
     m_ui->actionEntryEdit->setEnabled(singleEntrySelected);
     m_ui->actionEntryExpire->setEnabled(multiEntrySelected);
     m_ui->actionEntryDelete->setEnabled(multiEntrySelected);
-    m_ui->actionEntryRestore->setVisible(multiEntrySelected && inRecycleBin);
-    m_ui->actionEntryRestore->setEnabled(multiEntrySelected && inRecycleBin);
+    if (dbWidget) {
+        if (dbWidget->database()->metadata()->recycleBinEnabled() && !inRecycleBin) {
+            m_ui->actionEntryDelete->setToolTip(
+                tr("Move selected entry(s) to the recycle bin", "", dbWidget->numberOfSelectedEntries()));
+        } else {
+            m_ui->actionEntryDelete->setToolTip(
+                tr("Permanently delete the selected entry(s)", "", dbWidget->numberOfSelectedEntries()));
+        }
+    } else {
+        m_ui->actionEntryDelete->setToolTip(tr("Delete Entry"));
+    }
+    bool hasRecycledEntries = (inDatabase && dbWidget && dbWidget->hasRecycledSelectedEntries());
+    m_ui->actionEntryRestore->setVisible(multiEntrySelected && hasRecycledEntries);
+    m_ui->actionEntryRestore->setEnabled(multiEntrySelected && hasRecycledEntries);
     if (dbWidget) {
         m_ui->actionEntryRestore->setText(tr("Restore Entry(s)", "", dbWidget->numberOfSelectedEntries()));
         m_ui->actionEntryRestore->setToolTip(tr("Restore Entry(s)", "", dbWidget->numberOfSelectedEntries()));
@@ -975,10 +998,12 @@ void MainWindow::updateMenuActionState()
     m_ui->actionEntryAutoTypePassword->setEnabled(singleEntrySelected && dbWidget->currentEntryHasPassword());
     m_ui->actionEntryAutoTypePasswordEnter->setEnabled(singleEntrySelected && dbWidget->currentEntryHasPassword());
     m_ui->actionEntryAutoTypeTOTP->setEnabled(singleEntrySelected && dbWidget->currentEntryHasTotp());
+    m_ui->actionEntryAutoTypeURL->setEnabled(singleEntrySelected && dbWidget->currentEntryHasUrl());
+    m_ui->actionEntryAutoTypeURLEnter->setEnabled(singleEntrySelected && dbWidget->currentEntryHasUrl());
     m_ui->actionEntryAutoTypeTOTP->setVisible(singleEntrySelected && dbWidget->currentEntryHasTotp());
     m_ui->actionEntryOpenUrl->setEnabled(singleEntryOrEditing && dbWidget->currentEntryHasUrl());
     m_ui->actionEntryTotp->setEnabled(singleEntrySelected && dbWidget->currentEntryHasTotp());
-    m_ui->actionEntryCopyTotp->setEnabled(singleEntrySelected && dbWidget->currentEntryHasTotp());
+    m_ui->actionEntryCopyTotp->setEnabled(singleEntrySelected);
     m_ui->actionEntryCopyPasswordTotp->setEnabled(singleEntrySelected && dbWidget->currentEntryHasTotp());
     m_ui->actionEntrySetupTotp->setEnabled(singleEntrySelected);
     m_ui->actionEntryTotpQRCode->setEnabled(singleEntrySelected && dbWidget->currentEntryHasTotp());
@@ -1016,7 +1041,7 @@ void MainWindow::updateMenuActionState()
     m_ui->actionGroupDownloadFavicons->setEnabled(groupSelected && groupHasEntries && !inRecycleBin);
 
     // Database Menu
-    m_ui->actionDatabaseSave->setEnabled(m_ui->tabWidget->canSave());
+    m_ui->actionDatabaseSave->setEnabled(databaseUnlocked && m_ui->tabWidget->canSave());
     m_ui->actionDatabaseSaveAs->setEnabled(databaseUnlocked);
     m_ui->actionDatabaseSaveBackup->setEnabled(databaseUnlocked);
     m_ui->actionDatabaseClose->setEnabled(dbWidget);
@@ -1314,6 +1339,11 @@ void MainWindow::databaseTabChanged(int tabIndex)
 
     m_actionMultiplexer.setCurrentObject(m_ui->tabWidget->currentDatabaseWidget());
     updateEntryCountLabel();
+
+    // Clear the tags menu to prevent re-use between databases
+    for (const auto action : m_ui->menuTags->actions()) {
+        delete action;
+    }
 }
 
 bool MainWindow::event(QEvent* event)
@@ -1350,6 +1380,12 @@ void MainWindow::showEvent(QShowEvent* event)
     // Qt Hack - Prevent white flicker when showing window
     QTimer::singleShot(50, this, [=] { setProperty("windowOpacity", 1.0); });
 #endif
+
+    // Restore geometry and window state only on the first showEvent to prevent issues with minimized tray startup
+    if (!m_windowInformationRestored) {
+        restoreWindowInformation();
+        m_windowInformationRestored = true;
+    }
 }
 
 void MainWindow::hideEvent(QHideEvent* event)
@@ -1507,6 +1543,12 @@ void MainWindow::saveWindowInformation()
     }
 }
 
+void MainWindow::restoreWindowInformation()
+{
+    restoreGeometry(config()->get(Config::GUI_MainWindowGeometry).toByteArray());
+    restoreState(config()->get(Config::GUI_MainWindowState).toByteArray());
+}
+
 bool MainWindow::saveLastDatabases()
 {
     if (config()->get(Config::OpenPreviousDatabasesOnStartup).toBool()) {
@@ -1650,21 +1692,23 @@ void MainWindow::showGroupContextMenu(const QPoint& globalPos)
 
 void MainWindow::applySettingsChanges()
 {
-    int timeout = config()->get(Config::Security_LockDatabaseIdleSeconds).toInt() * 1000;
-    if (timeout <= 0) {
-        timeout = 60;
-    }
-
-    m_inactivityTimer->setInactivityTimeout(timeout);
     if (config()->get(Config::Security_LockDatabaseIdle).toBool()) {
-        m_inactivityTimer->activate();
+        auto timeout = config()->get(Config::Security_LockDatabaseIdleSeconds).toInt() * 1000;
+        m_inactivityTimer->activate(timeout);
     } else {
         m_inactivityTimer->deactivate();
     }
 
-    m_ui->actionShowToolbar->setChecked(!config()->get(Config::GUI_HideToolbar).toBool());
-    m_ui->actionShowMenubar->setChecked(!config()->get(Config::GUI_HideMenubar).toBool());
-    m_ui->menubar->setHidden(config()->get(Config::GUI_HideMenubar).toBool());
+    auto hideToolbar = config()->get(Config::GUI_HideToolbar).toBool();
+    auto hideMenubar = config()->get(Config::GUI_HideMenubar).toBool();
+
+    m_ui->actionShowToolbar->setChecked(!hideToolbar);
+    m_ui->actionShowMenubar->setChecked(!hideMenubar);
+
+    // When menubar is hidden with setHidden() the menu keyboard shortcuts are disabled on Wayland,
+    // so force height of 0 instead and use maximumHeight() > 0 instead of isVisible() elsewhere
+    m_ui->menubar->setMaximumHeight(hideMenubar ? 0 : QWIDGETSIZE_MAX);
+
     m_ui->toolBar->setHidden(config()->get(Config::GUI_HideToolbar).toBool());
     auto movable = config()->get(Config::GUI_MovableToolbar).toBool();
     m_ui->toolBar->setMovable(movable);
@@ -1827,13 +1871,6 @@ void MainWindow::closeModalWindow()
     }
 }
 
-void MainWindow::lockDatabasesAfterInactivity()
-{
-    if (!m_ui->tabWidget->lockDatabases()) {
-        m_inactivityTimer->activate();
-    }
-}
-
 bool MainWindow::isTrayIconEnabled() const
 {
     return m_trayIcon && m_trayIcon->isVisible();
@@ -1888,7 +1925,7 @@ void MainWindow::bringToFront()
 void MainWindow::handleScreenLock()
 {
     if (config()->get(Config::Security_LockDatabaseScreenLock).toBool()) {
-        lockDatabasesAfterInactivity();
+        lockAllDatabases();
     }
 }
 
@@ -1938,7 +1975,7 @@ void MainWindow::closeAllDatabases()
 
 void MainWindow::lockAllDatabases()
 {
-    lockDatabasesAfterInactivity();
+    m_ui->tabWidget->lockDatabases();
 }
 
 void MainWindow::displayDesktopNotification(const QString& msg, QString title, int msTimeoutHint)
@@ -1994,6 +2031,7 @@ void MainWindow::initViewMenu()
             restartApp(tr("You must restart the application to apply this setting. Would you like to restart now?"));
         } else {
             kpxcApp->applyTheme();
+            kpxcApp->applyFontSize();
         }
     });
 
@@ -2184,10 +2222,11 @@ MainWindowEventFilter::MainWindowEventFilter(QObject* parent)
     m_menubarTimer.setSingleShot(false);
     connect(&m_menubarTimer, &QTimer::timeout, this, [this] {
         auto mainwindow = getMainWindow();
-        if (mainwindow && mainwindow->m_ui->menubar->isVisible() && config()->get(Config::GUI_HideMenubar).toBool()) {
+        if (mainwindow && mainwindow->m_ui->menubar->maximumHeight() > 0
+            && config()->get(Config::GUI_HideMenubar).toBool()) {
             // If the menu bar is visible with no active menu, hide it
             if (!mainwindow->m_ui->menubar->activeAction()) {
-                mainwindow->m_ui->menubar->setVisible(false);
+                mainwindow->m_ui->menubar->setMaximumHeight(0);
                 m_altCoolDown.start();
                 m_menubarTimer.stop();
             }
@@ -2246,9 +2285,13 @@ bool MainWindowEventFilter::eventFilter(QObject* watched, QEvent* event)
         if (keyEvent->key() == Qt::Key_Alt && !keyEvent->modifiers() && config()->get(Config::GUI_HideMenubar).toBool()
             && !m_altCoolDown.isActive()) {
             auto menubar = mainWindow->m_ui->menubar;
-            menubar->setVisible(!menubar->isVisible());
-            if (menubar->isVisible()) {
-                menubar->setActiveAction(mainWindow->m_ui->menuFile->menuAction());
+            menubar->setMaximumHeight(menubar->maximumHeight() > 0 ? 0 : QWIDGETSIZE_MAX);
+            if (menubar->maximumHeight() > 0) {
+                QTimer::singleShot(0, [menubar, mainWindow] {
+                    // Run this with a singleshot timer so it's after menubar->setMaximumHeight() has taken effect,
+                    // otherwise it won't be selected and menubarTimer will hide the menubar instantly
+                    menubar->setActiveAction(mainWindow->m_ui->menuFile->menuAction());
+                });
                 m_menubarTimer.start();
             } else {
                 m_menubarTimer.stop();

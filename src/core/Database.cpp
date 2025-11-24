@@ -434,16 +434,23 @@ bool Database::performSave(const QString& filePath, SaveAction action, const QSt
         break;
     }
     case DirectWrite: {
+        QBuffer dbBuffer;
+        dbBuffer.open(QIODevice::WriteOnly);
+        HashingStream hashingStream(&dbBuffer, QCryptographicHash::Md5, kFileBlockToHashSizeBytes);
+        if (!hashingStream.open(QIODevice::WriteOnly)) {
+            if (error) {
+                *error = hashingStream.errorString();
+            }
+            return false;
+        }
+        if (!writeDatabase(&hashingStream, error)) {
+            return false;
+        }
+
         // Open the original database file for direct-write
         QFile dbFile(filePath);
         if (dbFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            HashingStream hashingStream(&dbFile, QCryptographicHash::Md5, kFileBlockToHashSizeBytes);
-            if (!hashingStream.open(QIODevice::WriteOnly)) {
-                return false;
-            }
-            if (!writeDatabase(&hashingStream, error)) {
-                return false;
-            }
+            dbFile.write(dbBuffer.data());
             dbFile.close();
             // store the new hash
             m_fileBlockHash = hashingStream.hashingResult();
@@ -819,7 +826,12 @@ void Database::updateTagList()
     }
 
     m_tagList = tagSet.values();
-    m_tagList.sort();
+
+    QCollator collator;
+    collator.setNumericMode(true);
+    collator.setCaseSensitivity(Qt::CaseInsensitive);
+    std::sort(m_tagList.begin(), m_tagList.end(), collator);
+
     emit tagListUpdated();
 }
 
